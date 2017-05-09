@@ -1,0 +1,32 @@
+.results-root *{
+  max-width:280px;
+  width:100%;
+}
+
+.result-row{
+  display:flex;
+  align-items: baseline;
+  flex-direction: row;
+  margin:8px 0;
+}
+
+.result-row:first-child{
+  margin-top:0;
+}
+
+.result-row:last-child{
+  margin-bottom: 0;
+}
+
+.result-row *{
+  margin:0;
+}
+
+.result-row *:first-child{
+  width:auto;
+}
+
+.result-row *:nth-child(2){
+  width:auto;
+  margin-left: auto;
+}

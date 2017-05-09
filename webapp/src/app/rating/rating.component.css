@@ -1,0 +1,36 @@
+.rating-root {
+  font-size: 18px;
+  display:block;
+}
+
+.rating-root h6 {
+  margin: 0;
+}
+
+.rating-root button {
+  width: auto;
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: 40px;
+}
+
+.rating-root button:last-of-type {
+  font-size: inherit;
+}
+
+.rating-root p {
+  width: auto;
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: 40px;
+}
+
+.small.rating-root p{
+  font-size: inherit;
+}
+
+.small.rating-root button{
+  font-size: inherit;
+}

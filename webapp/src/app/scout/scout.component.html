@@ -1,0 +1,67 @@
+<div class="scout-root column-component">
+  <md-select ngDefaultControl placeholder="Game" [(ngModel)]="selectedGame" (change)="selectedGameChange()">
+    <ng-container *ngIf="games">
+      <md-option *ngFor="let game of games" [value]="game" ngDefaultControl>{{game.name}}</md-option>
+    </ng-container>
+  </md-select>
+  <md-select ngDefaultControl [(ngModel)]="selectedEvent"
+             *ngIf="(!selectedGame)||(!eventsFetched)||(events | currentEvents).length>0"
+             [placeholder]="selectedGame?'Event':'Please select a game'">
+    <ng-container *ngIf="events">
+      <md-option *ngFor="let event of events | currentEvents" [value]="event" ngDefaultControl>
+        {{event.shortName}}
+      </md-option>
+    </ng-container>
+  </md-select>
+  <h5 style="height:48px; padding:0; margin: 8px 0" *ngIf="selectedGame&&eventsFetched&&(events | currentEvents).length==0">
+    There are no ongoing events for this game
+  </h5>
+  <ng-container *ngIf="!(selectedGame&&eventsFetched&&(events | currentEvents).length==0)">
+  <md-input-container>
+    <md-hint style="color:red" *ngIf="robotNumberMissingErrorShown">Required</md-hint>
+    <input mdInput placeholder="Robot" [(ngModel)]="robotNumber" type="number" min="0" minlength="1"
+           (blur)="validateRobotNumberFieldAndShowError()" ngDefaultControl>
+  </md-input-container>
+  <md-input-container>
+    <md-hint style="color:red" *ngIf="matchNumberMissingErrorShown">Required</md-hint>
+    <input mdInput placeholder="Match" [(ngModel)]="matchNumber" type="number" min="0" minlength="1"
+           (blur)="validateMatchNumberFieldAndShowError()" ngDefaultControl>
+  </md-input-container>
+  <md-select ngDefaultControl [(ngModel)]="matchType"
+            placeholder="Match Type">
+    <md-option value="qualifier">Qualifier</md-option>
+    <md-option value="quarter-final">Quarter-Final</md-option>
+    <md-option value="semi-final">Semi-Final</md-option>
+    <md-option value="final">Final</md-option>
+  </md-select>
+  <ng-container *ngIf="scorecard">
+    <ng-container *ngFor="let section of sectionModels">
+      <ng-container *ngIf="isFieldSection(section)">
+        <div class="scout-optional-header" *ngIf="section.optional">
+          <h6>{{section.checkboxMessage}}</h6>
+          <input [(ngModel)]="section.checked" (change)="log(section.checked)" type="checkbox">
+        </div>
+        <ng-container *ngIf="!section.optional||(section.checked!==(section.nullWhen==CHECKED))">
+          <md-input-container *ngIf="section.type=='COUNT'">
+            <input mdInput [(ngModel)]="section.value"
+                   placeholder="{{section.label}}" type="number" min="0" ngDefaultControl>
+          </md-input-container>
+          <app-rating *ngIf="section.type=='RATING'"
+                      [numStars]="5"
+                      [(ngModel)]="section.value"
+                      (change)="log(section.value)"
+                      [label]="section.label">
+          </app-rating>
+          <div class="scout-optional-header" *ngIf="section.type=='BOOLEAN'">
+            <h6>{{section.label}}</h6>
+            <input [(ngModel)]="section.checked" type="checkbox">
+          </div>
+        </ng-container>
+      </ng-container>
+      <h3 *ngIf="isTitleSection(section)">{{toTitleSection(section).title}}</h3>
+      <p *ngIf="isParagraphSection(section)">{{toParagraphSection(section).text}}</p>
+    </ng-container>
+    <button color="primary" md-raised-button (click)="submitButtonPressed()">Submit</button>
+  </ng-container>
+  </ng-container>
+</div>

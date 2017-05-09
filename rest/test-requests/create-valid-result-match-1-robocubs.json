@@ -1,0 +1,29 @@
+{
+  "scorecard":1,
+  "scores":[{
+    "field":{
+      "sectionType":"field",
+      "id":1
+    },
+    "score":13
+  },{
+    "field":{
+      "sectionType":"field",
+      "id":2
+    },
+    "score":14
+  },{
+    "field":{
+      "sectionType":"field",
+      "id":3
+    },
+    "score":15
+  },{
+    "field":{
+      "sectionType":"field",
+      "id":4
+    },
+    "score":16
+  }],
+  "robot":{"number":1}
+}

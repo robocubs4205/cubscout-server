@@ -1,0 +1,16 @@
+
+.gradle/
+.idea/compiler.xml
+.idea/gradle.xml
+.idea/libraries/
+.idea/misc.xml
+.idea/modules/b.iml
+.idea/modules/b_main.iml
+.idea/modules/b_test.iml
+.idea/modules/cubscout-webapp.iml
+.idea/workspace.xml
+build/
+dist/
+cubscout-webapp.iws
+gradle/
+node_modules/

@@ -1,0 +1,15 @@
+<div class="rating-root" [ngClass]="{'small':small}">
+  <h6 *ngIf="labal&&label.length>0">{{label}}</h6>
+  <div>
+    <ng-container *ngIf="!fixed">
+    <button *ngFor="let index of numStars | arrayWithSize"
+            (click)="setRating(index+1)">{{charForStar(index)}}
+    </button>
+    <button
+      (click)="setRating(0)">zero</button>
+    </ng-container>
+    <ng-container *ngIf="fixed">
+      <span *ngFor="let index of numStars | arrayWithSize">{{charForStar(index)}}</span>
+    </ng-container>
+  </div>
+</div>

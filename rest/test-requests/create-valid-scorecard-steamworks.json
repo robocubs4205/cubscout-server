@@ -1,0 +1,130 @@
+{
+  "sections": [
+    {
+      "sectionType": "field",
+      "label": "Defense effectiveness",
+      "optional": true,
+      "checkboxMessage":"Played Defense",
+      "nullWhen":"UNCHECKED",
+      "type": "RATING",
+      "index": 1
+    },
+    {
+      "sectionType": "field",
+      "label": "Low boiler effectiveness",
+      "optional": true,
+      "checkboxMessage":"Used Low Boiler",
+      "nullWhen":"UNCHECKED",
+      "type": "RATING",
+      "index": 2
+    },
+    {
+      "sectionType": "field",
+      "label": "High boiler effectiveness",
+      "optional": true,
+      "nullWhen":"UNCHECKED",
+      "checkboxMessage":"used High Boiler",
+      "type": "RATING",
+      "index": 3
+    },
+    {
+      "sectionType": "field",
+      "label": "Gears taken to airship",
+      "optional": false,
+      "type": "COUNT",
+      "index": 4
+    },
+    {
+      "sectionType":"field",
+      "label":"Climbed Rope",
+      "type":"BOOLEAN",
+      "index":5
+    }
+  ],
+  "robotRoles": [
+    {
+      "name": "default",
+      "weights": [
+        {
+          "field": {
+            "sectionType": "field",
+            "index": 1
+          },
+          "weight": 1
+        },
+        {
+          "field": {
+            "sectionType": "field",
+            "index": 2
+          },
+          "weight": 1
+        },
+        {
+          "field": {
+            "sectionType": "field",
+            "index": 3
+          },
+          "weight": 1
+        },
+        {
+          "field": {
+            "sectionType": "field",
+            "index": 4
+          },
+          "weight": 1
+        },
+        {
+          "field":{
+            "sectionType": "field",
+            "index": 5
+          },
+          "weight":1
+        }
+      ]
+    },
+    {
+      "name": "defense",
+      "weights": [
+        {
+          "field": {
+            "sectionType": "field",
+            "index": 1
+          },
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "name":"gear collector",
+      "weights":[
+        {
+          "field":{
+            "sectionType":"field",
+            "index":4
+          },
+          "weight":1
+        }
+      ]
+    },
+    {
+      "name":"Boiler bot",
+      "weights":[
+        {
+          "field":{
+            "sectionType":"field",
+            "index":2
+          },
+          "weight":1
+        },
+        {
+          "field":{
+            "sectionType":"field",
+            "index":3
+          },
+          "weight":3
+        }
+      ]
+    }
+  ],
+  "defaultRole": "default"
+}

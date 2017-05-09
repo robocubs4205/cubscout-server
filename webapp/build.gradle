@@ -1,0 +1,34 @@
+buildscript {
+  repositories {
+    mavenCentral()
+  }
+}
+repositories {
+  mavenCentral()
+}
+apply plugin: 'idea'
+apply plugin: 'war'
+//sourceCompatibility = 1.8
+
+task npm(type:Exec){
+  executable = 'npm'
+  args 'install'
+}
+
+task angular(type: Exec) {
+  dependsOn npm
+  executable = 'ng'
+  args 'build'
+  args '--prod'
+  args '--env'
+  args 'prod'
+  args "--output-path"
+  args "$buildDir/angular"
+}
+
+war {
+  dependsOn angular
+  baseName = "cubscout-webapp"
+  version = "0.0.1"
+  from "$buildDir/angular"
+}

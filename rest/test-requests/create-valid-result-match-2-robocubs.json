@@ -1,0 +1,11 @@
+{
+  "scorecard":1,
+  "scores":[{
+    "field":{
+    "sectionType":"field",
+    "id":3
+  },
+    "score":13
+  }],
+  "robot":{"id":1}
+}

@@ -1,0 +1,51 @@
+<div class="results-root column-component">
+  <md-select placeholder="Game" [(ngModel)]="selectedGame">
+    <md-option *ngFor="let game of games" [value]="game">{{game.name}}</md-option>
+  </md-select>
+  <md-select [(ngModel)]="selectedEvent"
+             placeholder="Event"
+             *ngIf="selectedGame">
+    <md-option *ngFor="let event of events" [value]="event">
+      {{event.shortName}}
+    </md-option>
+  </md-select>
+  <ng-container *ngIf="scorecard">
+    <md-select [(ngModel)]="selectedRole"
+               placeholder="Role">
+      <md-option *ngFor="let role of scorecard.roles" [value]="role">{{role.name}}</md-option>
+    </md-select>
+    <div *ngIf="selectedEvent&&!resultsFetched"
+      style="display:flex; align-items: center; justify-items: center;">
+      <p>Loading</p>
+    </div>
+    <div *ngIf="resultsFetched&&results.length==0"
+         style="display:flex; align-items: center; justify-items: center;">
+      <p>No Results</p>
+    </div>
+    <ng-container *ngIf="resultsFetched">
+    <md-card
+      *ngFor="let result of results | sortResults:scorecard.defaultRole | sortResults:(selectedRole?selectedRole:scorecard.defaultRole)">
+      <md-card-title>{{result.robotNumber}}</md-card-title>
+      <md-card-content>
+        <ng-container *ngFor="let field of scorecard.sections | filterSections">
+          <div class="result-row">
+            <p>{{field.label}}</p>
+            <p *ngIf="!getScoreForField(result,field)">N/a</p>
+            <ng-container *ngIf="getScoreForField(result,field)">
+              <p *ngIf="getScoreForField(result,field).field.type=='BOOLEAN'">
+                {{(getScoreForField(result,field).score*100).toFixed()+'%'}}</p>
+              <p *ngIf="getScoreForField(result,field).field.type=='COUNT'">
+                {{getScoreForField(result,field).score}}
+              </p>
+              <app-rating *ngIf="getScoreForField(result,field).field.type=='RATING'"
+                          [numStars]="5"
+                          [rating]="getScoreForField(result,field).score.toFixed()"
+                          [fixed]="true" [small]="true"></app-rating>
+            </ng-container>
+          </div>
+        </ng-container>
+      </md-card-content>
+    </md-card>
+    </ng-container>
+  </ng-container>
+</div>

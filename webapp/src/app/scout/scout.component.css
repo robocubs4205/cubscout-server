@@ -1,0 +1,17 @@
+.scout-root button{
+  width:auto;
+}
+
+.scout-optional-header{
+  align-self: flex-start;
+  display:flex;
+  align-items: baseline;
+}
+.scout-root .scout-optional-header *{
+  width:auto;
+}
+.scout-optional-header *:nth-child(2){
+  margin-left:auto;
+}
+
+
