@@ -16,7 +16,7 @@ apply plugin: 'war'
 sourceCompatibility = 1.8
 targetCompatibility = 1.8
 
-String appVersion = "1.0.0"
+String appVersion = "0.0.1"
 
 war{
     baseName="cubscout-rest"
