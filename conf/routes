@@ -1,0 +1,33 @@
+# Routes
+# This file defines all application routes (Higher priority routes first)
+# https://www.playframework.com/documentation/latest/ScalaRouting
+# ~~~~
+
+# An example controller showing a sample home page
+GET     /                           com.robocubs4205.cubscout.controllers.HomeController.index
+
+# Map static resources from the /public folder to the /assets URL path
+GET     /assets/*file               controllers.Assets.versioned(path="/public", file: Asset)
+
+GET     /v1/districts               com.robocubs4205.cubscout.controllers.apiv1.DistrictController.index(context:Option[String])
+POST    /v1/districts               com.robocubs4205.cubscout.controllers.apiv1.DistrictController.create(context:Option[String])
+GET     /v1/districts/:id           com.robocubs4205.cubscout.controllers.apiv1.DistrictController.get(id:Long,context:Option[String])
+DELETE  /v1/districts/:id           com.robocubs4205.cubscout.controllers.apiv1.DistrictController.delete(id:Long,context:Option[String])
+PUT     /v1/districts/:id           com.robocubs4205.cubscout.controllers.apiv1.DistrictController.put(id:Long,context:Option[String])
+GET     /v1/districts/:id/events    com.robocubs4205.cubscout.controllers.apiv1.DistrictController.eventsIndex(id:Long,context:Option[String])
+GET     /v1/districts/:id/teams     com.robocubs4205.cubscout.controllers.apiv1.DistrictController.teamsIndex(id:Long,context:Option[String])
+
+GET     /v1/events                  com.robocubs4205.cubscout.controllers.apiv1.EventController.index(context:Option[String])
+POST    /v1/events                  com.robocubs4205.cubscout.controllers.apiv1.EventController.create(context:Option[String])
+GET     /v1/events/:id              com.robocubs4205.cubscout.controllers.apiv1.EventController.get(id:Long,context:Option[String])
+DELETE  /v1/events/:id              com.robocubs4205.cubscout.controllers.apiv1.EventController.delete(id:Long,context:Option[String])
+PUT     /v1/events/:id              com.robocubs4205.cubscout.controllers.apiv1.EventController.put(id:Long,context:Option[String])
+GET     /v1/events/:id/matches      com.robocubs4205.cubscout.controllers.apiv1.EventController.matchIndex(id:Long,context:Option[String])
+
+GET     /v1/games                   com.robocubs4205.cubscout.controllers.apiv1.GameController.index(context:Option[String])
+POST    /v1/games                   com.robocubs4205.cubscout.controllers.apiv1.GameController.create(context:Option[String])
+GET     /v1/games/:id               com.robocubs4205.cubscout.controllers.apiv1.GameController.get(id:Long,context:Option[String])
+DELETE  /v1/games/:id               com.robocubs4205.cubscout.controllers.apiv1.GameController.delete(id:Long,context:Option[String])
+PUT     /v1/games/:id               com.robocubs4205.cubscout.controllers.apiv1.GameController.replace(id:Long,context:Option[String])
+GET     /v1/games/:id/events        com.robocubs4205.cubscout.controllers.apiv1.GameController.eventIndex(id:Long,context:Option[String])
+GET     /v1/games/:id/robots        com.robocubs4205.cubscout.controllers.apiv1.GameController.robotIndex(id:Long,context:Option[String])
