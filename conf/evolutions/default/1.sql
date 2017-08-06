@@ -14,7 +14,7 @@ CREATE TABLE "games" (
   "name" VARCHAR                                                 NOT NULL UNIQUE,
   "type" VARCHAR                                                 NOT NULL,
   "year" INT                                                     NOT NULL,
-  CONSTRAINT "type_year_ux" UNIQUE ("type", "year")
+  CONSTRAINT "type_year_ux_games" UNIQUE ("type", "year")
 );
 
 CREATE TABLE "events" (
@@ -27,7 +27,7 @@ CREATE TABLE "events" (
   "gameId"     BIGINT                                                  NOT NULL,
   FOREIGN KEY ("districtId") REFERENCES "districts" ("id"),
   FOREIGN KEY ("gameId") REFERENCES "games" ("id"),
-  CONSTRAINT "game_name_ux" UNIQUE ("gameId", "name")
+  CONSTRAINT "game_name_ux_events" UNIQUE ("gameId", "name")
 );
 
 CREATE TABLE "matches" (
@@ -36,7 +36,7 @@ CREATE TABLE "matches" (
   "number"  BIGINT                                                  NOT NULL,
   "type"    VARCHAR                                                 NOT NULL,
   FOREIGN KEY ("eventId") REFERENCES "events" ("id"),
-  CONSTRAINT "event_number_type_ux" UNIQUE ("eventId", "number", "type")
+  CONSTRAINT "event_number_type_ux_matches" UNIQUE ("eventId", "number", "type")
 );
 
 CREATE TABLE "teams" (
@@ -55,13 +55,14 @@ CREATE TABLE "robots" (
   "gameId" BIGINT                                                  NOT NULL,
   "name"   VARCHAR,
   FOREIGN KEY ("teamId") REFERENCES "teams" ("id"),
-  FOREIGN KEY ("gameId") REFERENCES "games" ("id")
+  FOREIGN KEY ("gameId") REFERENCES "games" ("id"),
+  constraint "team_game_ux" unique ("teamId","gameId")
 );
 
 CREATE TABLE "teamsInMatches" (
-  "teamId"  BIGINT NOT NULL,
+  "robotId"  BIGINT NOT NULL,
   "matchId" BIGINT NOT NULL,
-  PRIMARY KEY ("teamId", "matchId")
+  PRIMARY KEY ("robotId", "matchId")
 );
 
 INSERT INTO "districts" ("id", "code", "name", "gameType", "firstYear")
@@ -77,7 +78,7 @@ INSERT INTO "robots" ("id", "teamId", "gameId", "name") VALUES (1, 1, 1, 'Ruby')
 
 INSERT INTO "matches" ("id", "eventId", "number", "type") VALUES (1, 1, 1, 'Qualifying');
 
-INSERT INTO "teamsInMatches" ("teamId", "matchId") VALUES (1, 1);
+INSERT INTO "teamsInMatches" ("robotId", "matchId") VALUES (1, 1);
 
 # --- !Downs
 

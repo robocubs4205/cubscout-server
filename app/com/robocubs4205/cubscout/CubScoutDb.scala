@@ -72,7 +72,7 @@ class CubScoutDb @Inject()(dbConfigProvider: DatabaseConfigProvider)(implicit ex
 
     def gameFk = foreignKey("event_game_fk", gameId, games)(_.id, onUpdate = Restrict, onDelete = Restrict)
 
-    def uniqueGameAndName = index("game_name_ux", (gameId, name), unique = true)
+    def uniqueGameName = index("game_name_ux_events", (gameId, name), unique = true)
 
     def * = (id, districtId, gameId, name, address, startDate, endDate) <> (Event.tupled, Event.unapply)
   }
@@ -85,6 +85,8 @@ class CubScoutDb @Inject()(dbConfigProvider: DatabaseConfigProvider)(implicit ex
     def `type` = column[String]("type")
 
     def year = column[Year]("year")
+
+    def uniqueTypeYear = index("type_year_ux_games",(`type`,year),unique = true)
 
     def * = (id, name, `type`, year) <> (Game.tupled, Game.unapply)
   }
@@ -99,6 +101,8 @@ class CubScoutDb @Inject()(dbConfigProvider: DatabaseConfigProvider)(implicit ex
     def number = column[Long]("number")
 
     def `type` = column[String]("type")
+
+    def uniqueEventNumberType = index("event_number_type_ux_matches",(eventId,number,`type`),unique = true)
 
     def * = (id, eventId, number, `type`) <> (Match.tupled, Match.unapply)
   }
@@ -116,6 +120,8 @@ class CubScoutDb @Inject()(dbConfigProvider: DatabaseConfigProvider)(implicit ex
 
     def districtFk = foreignKey("team_district_fk", districtId, districts)(_.id.?, onUpdate = Restrict, onDelete = Restrict)
 
+    def uniqueNumberGameType = index("number_gameType_ux_teams",(number,gameType),unique = true)
+
     def * = (id, number, name, gameType, districtId) <> (Team.tupled, Team.unapply)
   }
 
@@ -132,15 +138,17 @@ class CubScoutDb @Inject()(dbConfigProvider: DatabaseConfigProvider)(implicit ex
 
     def name = column[Option[String]]("name")
 
+    def uniqueTeamGame = index("team_game_ux_robots",(teamId,gameId),unique = true)
+
     def * = (id, teamId, gameId, name) <> (Robot.tupled, Robot.unapply)
   }
 
   class ResultTable(tag: Tag) extends Table[Result](tag, "teamsInMatches") {
     def id = column[Long]("id", O.AutoInc, O.PrimaryKey)
 
-    def teamId = column[Long]("teamId")
+    def robotId = column[Long]("teamId")
 
-    def teamFk = foreignKey("result_team_fk", teamId, teams)(_.id, onUpdate = Restrict, onDelete = Restrict)
+    def robotFk = foreignKey("result_team_fk", robotId, robots)(_.id, onUpdate = Restrict, onDelete = Restrict)
 
     def matchId = column[Long]("matchId")
 
@@ -148,9 +156,9 @@ class CubScoutDb @Inject()(dbConfigProvider: DatabaseConfigProvider)(implicit ex
 
     def scorecardId = column[Long]("scorecardId")
 
-    def pk = primaryKey("result_pk", (teamId, matchId))
+    def pk = primaryKey("result_pk", (robotId, matchId))
 
-    def * = (id, teamId, matchId, scorecardId) <> (Result.tupled, Result.unapply)
+    def * = (id, robotId, matchId, scorecardId) <> (Result.tupled, Result.unapply)
   }
 
   val districts = TableQuery[DistrictTable]

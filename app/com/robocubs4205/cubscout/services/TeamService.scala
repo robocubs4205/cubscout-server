@@ -17,7 +17,7 @@ class TeamService @Inject()(csdb: CubScoutDb)(implicit ec: ExecutionContext) {
   import dbConfig._
   import profile.api._
 
-  def findById(id: Long) = teams.filter(_.id === id)
+  def findById(id: Long) = teams.filter(_.id === id).result.headOption
 
   def checkNoInsertConflict(team: Team) = {
     for {
