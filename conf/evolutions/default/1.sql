@@ -81,10 +81,10 @@ INSERT INTO "teamsInMatches" ("teamId", "matchId") VALUES (1, 1);
 
 # --- !Downs
 
-DROP TABLE "districts" IF EXISTS;
-DROP TABLE "events" IF EXISTS;
-DROP TABLE "games" IF EXISTS;
-DROP TABLE "matches" IF EXISTS;
-DROP TABLE "robots" IF EXISTS;
-DROP TABLE "teams" IF EXISTS;
-DROP TABLE "teamsInMatches" IF EXISTS
+DROP TABLE IF EXISTS "districts";
+DROP TABLE IF EXISTS "events";
+DROP TABLE IF EXISTS "games";
+DROP TABLE IF EXISTS "matches";
+DROP TABLE IF EXISTS "robots";
+DROP TABLE IF EXISTS "teams";
+DROP TABLE IF EXISTS "teamsInMatches";
