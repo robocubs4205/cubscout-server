@@ -4,6 +4,7 @@ import javax.inject.Inject
 
 import com.robocubs4205.cubscout.controllers.{DistrictNotFoundException, EtagDoesNotMatchException, GameNotFoundException}
 import com.robocubs4205.cubscout.model._
+import com.robocubs4205.cubscout.services.EventService
 import com.robocubs4205.cubscout.{CubScoutDb, _}
 import play.Logger
 import play.api.libs.json._
@@ -16,12 +17,13 @@ import scala.util.Failure
 /**
   * Created by trevor on 7/22/17.
   */
-class EventController @Inject()(cc: ControllerComponents, csdb: CubScoutDb)(implicit ec: ExecutionContext)
-  extends AbstractController(cc) {
+class EventController @Inject()(cc: ControllerComponents, csdb: CubScoutDb, eventService: EventService)
+                               (implicit ec: ExecutionContext) extends AbstractController(cc) {
 
   import csdb._
   import dbConfig._
   import profile.api._
+  import eventService._
 
   val eventEtagWriter = implicitly[EtagWriter[Event]]
 
@@ -35,9 +37,7 @@ class EventController @Inject()(cc: ControllerComponents, csdb: CubScoutDb)(impl
   def get(id: Long, context: Option[String]) = Action.async {
     implicit request: Request[_] =>
       implicit val responseCtx = ResponseCtx(context, request.id)
-      db.run {
-        events.filter(event => event.id === id).result.headOption
-      }.flatMap {
+      db.run(findById(id)).flatMap {
         case Some(e) => Future(e).map(JsonResponseWrapper(_)).map(Json.toJson(_)).map(Ok(_))
         case None => Future(JsonErrorResponseWrapper(NOT_FOUND, "event not found")).map(Json.toJson(_)).map(NotFound(_))
       }
@@ -47,20 +47,7 @@ class EventController @Inject()(cc: ControllerComponents, csdb: CubScoutDb)(impl
     implicit val responseCtx = ResponseCtx(context, request.id)
     Json.fromJson[JsonSingleRequestWrapper[Event]](request.body).map(_.data).map { implicit event =>
       db.run {
-        {
-          for (
-            game <- games.filter(_.id === event.gameId).result.headOption;
-            district <- districts.filter(_.id === event.districtId).result.headOption;
-            existingEvent <- events.filter(_.name === event.name)
-              .filter(_.gameId === event.gameId).result.headOption
-          ) yield if (game.isEmpty) DBIO.failed(GameNotFoundException())
-          else if (district.isEmpty) DBIO.failed(DistrictNotFoundException())
-          else if (existingEvent.isDefined) DBIO.failed(EventAlreadyExistsException())
-          else DBIO.successful(())
-        }.flatten.andThen(
-          (events returning events.map(e => e.id)
-            into ((event, id) => event.copy(id = id))) += event
-        ).transactionally.withTransactionIsolation(RepeatableRead)
+        checkNoInsertConflict(event).andThen(doInsert(event)).transactionally.withTransactionIsolation(RepeatableRead)
       }.flatMap(e => Future(e).map(JsonResponseWrapper(_)).map(Json.toJson(_)).map(Created(_))
         .map(_.withHeaders(
           (ETAG, eventEtagWriter.etag(e)),
@@ -90,22 +77,13 @@ class EventController @Inject()(cc: ControllerComponents, csdb: CubScoutDb)(impl
     }
     else Json.fromJson[JsonSingleRequestWrapper[Event]](request.body).map(_.data).map { event =>
       db.run {
-        {
-          for {
-            existingEvent <- events.filter(_.name === event.name).filter(_.gameId === event.gameId).result.headOption
-            game <- games.filter(_.id === event.gameId).result.headOption
-            district <- districts.filter(_.id === event.districtId).result.headOption
-          } yield if (existingEvent.isDefined) DBIO.failed(EventAlreadyExistsException())
-          else if (game.isEmpty) DBIO.failed(GameNotFoundException())
-          else if (district.isEmpty && event.districtId.isDefined) DBIO.failed(DistrictNotFoundException())
-          else DBIO.successful(())
-        }.flatten.andThen(
+        checkNoReplaceConflict(event, id).andThen(
           events.filter(_.id === id).result.headOption
         ).flatMap {
           case None => DBIO.successful[Option[Event]](None)
           case Some(d) =>
             if (eventEtagWriter.etag(d) != request.headers(IF_MATCH)) DBIO.failed(EtagDoesNotMatchException())
-            else events.filter(_.id === id).update(event.copy(id = id)).map(_ => Some(event.copy(id = id)))
+            else doReplace(event,id)
         }.transactionally.withTransactionIsolation(Serializable)
       }.flatMap {
         case None =>
@@ -134,17 +112,7 @@ class EventController @Inject()(cc: ControllerComponents, csdb: CubScoutDb)(impl
   def delete(id: Long, context: Option[String]) = Action.async { implicit request: Request[_] =>
     implicit val responseCtx = ResponseCtx(context, request.id)
     db.run {
-      {
-        for {
-          matches <- matches.filter(_.eventId === id).result
-        } yield if (matches.nonEmpty) DBIO.failed(MatchesInEventException())
-        else DBIO.successful(())
-      }.flatten.andThen(
-        for {
-          event <- events.filter(_.id === id).result.headOption
-          _ <- events.filter(_.id === id).delete
-        } yield event
-      ).transactionally.withTransactionIsolation(Serializable)
+      checkNoDeleteConflict(id).andThen(doDelete(id)).transactionally.withTransactionIsolation(Serializable)
     }.flatMap {
       case Some(e) => Future(e).map(JsonResponseWrapper(_)).map(Json.toJson(_)).map(Ok(_))
       case None => Future(JsonErrorResponseWrapper(NOT_FOUND, "event not found")).map(Json.toJson(_)).map(NotFound(_))
