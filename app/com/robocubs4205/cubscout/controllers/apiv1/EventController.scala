@@ -77,9 +77,7 @@ class EventController @Inject()(cc: ControllerComponents, csdb: CubScoutDb, even
     }
     else Json.fromJson[JsonSingleRequestWrapper[Event]](request.body).map(_.data).map { event =>
       db.run {
-        checkNoReplaceConflict(event, id).andThen(
-          events.filter(_.id === id).result.headOption
-        ).flatMap {
+        checkNoReplaceConflict(event, id).andThen(findById(id)).flatMap {
           case None => DBIO.successful[Option[Event]](None)
           case Some(d) =>
             if (eventEtagWriter.etag(d) != request.headers(IF_MATCH)) DBIO.failed(EtagDoesNotMatchException())
