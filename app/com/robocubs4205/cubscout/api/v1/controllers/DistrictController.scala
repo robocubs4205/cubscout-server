@@ -1,13 +1,12 @@
-package com.robocubs4205.cubscout.controllers.apiv1
+package com.robocubs4205.cubscout.api.v1.controllers
 
 import javax.inject._
 
 import com.robocubs4205.cubscout.JsonSingleRequestWrapper._
-import com.robocubs4205.cubscout.controllers.EtagDoesNotMatchException
+import com.robocubs4205.cubscout._
+import com.robocubs4205.cubscout.api.v1.services.DistrictService
 import com.robocubs4205.cubscout.model.District._
 import com.robocubs4205.cubscout.model._
-import com.robocubs4205.cubscout._
-import com.robocubs4205.cubscout.services.DistrictService
 import play.Logger
 import play.api.libs.json._
 import play.api.mvc._
@@ -23,8 +22,8 @@ class DistrictController @Inject()(cc: ControllerComponents, csdb: CubScoutDb, d
 
   import csdb._
   import dbConfig._
-  import profile.api._
   import districtService._
+  import profile.api._
 
   def index(context: Option[String]) = Action.async { implicit request: Request[AnyContent] =>
     implicit val responseCtx = ResponseCtx(context, request.id)
@@ -52,7 +51,7 @@ class DistrictController @Inject()(cc: ControllerComponents, csdb: CubScoutDb, d
       }.flatMap(d => Future(d).map(JsonResponseWrapper(_)).map(Json.toJson(_)).map(Created(_))
         .map(_.withHeaders(
           (ETAG, districtEtagWriter.etag(d)),
-          (LOCATION, controllers.apiv1.routes.DistrictController.get(d.id, None).url)
+          (LOCATION, routes.DistrictController.get(d.id, None).url)
         ))
       ).recoverWith {
         case e: DistrictWithCodeExistsException =>

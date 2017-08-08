@@ -1,10 +1,9 @@
-package com.robocubs4205.cubscout.controllers.apiv1
+package com.robocubs4205.cubscout.api.v1.controllers
 
 import javax.inject.Inject
 
-import com.robocubs4205.cubscout.controllers.{DistrictNotFoundException, EtagDoesNotMatchException, GameNotFoundException}
+import com.robocubs4205.cubscout.api.v1.services.EventService
 import com.robocubs4205.cubscout.model._
-import com.robocubs4205.cubscout.services.EventService
 import com.robocubs4205.cubscout.{CubScoutDb, _}
 import play.Logger
 import play.api.libs.json._
@@ -22,8 +21,8 @@ class EventController @Inject()(cc: ControllerComponents, csdb: CubScoutDb, even
 
   import csdb._
   import dbConfig._
-  import profile.api._
   import eventService._
+  import profile.api._
 
   val eventEtagWriter = implicitly[EtagWriter[Event]]
 
@@ -51,7 +50,7 @@ class EventController @Inject()(cc: ControllerComponents, csdb: CubScoutDb, even
       }.flatMap(e => Future(e).map(JsonResponseWrapper(_)).map(Json.toJson(_)).map(Created(_))
         .map(_.withHeaders(
           (ETAG, eventEtagWriter.etag(e)),
-          (LOCATION, controllers.apiv1.routes.EventController.get(e.id, None).url)
+          (LOCATION, routes.EventController.get(e.id, None).url)
         ))
       ).recoverWith {
         case e: GameNotFoundException =>

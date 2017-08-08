@@ -1,11 +1,10 @@
-package com.robocubs4205.cubscout.controllers.apiv1
+package com.robocubs4205.cubscout.api.v1.controllers
 
 import javax.inject.Inject
 
-import com.robocubs4205.cubscout.controllers._
-import com.robocubs4205.cubscout.{CubScoutDb, EtagWriter, JsonErrorResponseWrapper, JsonResponseWrapper, JsonSingleRequestWrapper, ResponseCtx, controllers}
+import com.robocubs4205.cubscout.api.v1.services.MatchService
 import com.robocubs4205.cubscout.model._
-import com.robocubs4205.cubscout.services.MatchService
+import com.robocubs4205.cubscout.{CubScoutDb, EtagWriter, JsonErrorResponseWrapper, JsonResponseWrapper, JsonSingleRequestWrapper, ResponseCtx}
 import play.Logger
 import play.api.libs.json.{JsError, JsSuccess, JsValue, Json}
 import play.api.mvc.{AbstractController, AnyContent, ControllerComponents, Request}
@@ -22,8 +21,8 @@ class MatchController @Inject()(cc: ControllerComponents, csdb: CubScoutDb, matc
 
   import csdb._
   import dbConfig._
-  import profile.api._
   import matchService._
+  import profile.api._
 
   val matchEtagWriter = implicitly[EtagWriter[Match]]
 
@@ -51,7 +50,7 @@ class MatchController @Inject()(cc: ControllerComponents, csdb: CubScoutDb, matc
       }.flatMap(`match` => Future(`match`).map(JsonResponseWrapper(_)).map(Json.toJson(_)).map(Created(_))
         .map(_.withHeaders(
           (ETAG, matchEtagWriter.etag(`match`)),
-          (LOCATION, controllers.apiv1.routes.GameController.get(`match`.id, None).url)
+          (LOCATION, routes.GameController.get(`match`.id, None).url)
         ))
       ).recoverWith {
         case e: EventNotFoundException =>

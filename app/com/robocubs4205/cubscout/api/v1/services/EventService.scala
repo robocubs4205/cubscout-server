@@ -1,9 +1,9 @@
-package com.robocubs4205.cubscout.services
+package com.robocubs4205.cubscout.api.v1.services
 
 import javax.inject.Inject
 
 import com.robocubs4205.cubscout.CubScoutDb
-import com.robocubs4205.cubscout.controllers.{DistrictNotFoundException, GameNotFoundException}
+import com.robocubs4205.cubscout.api.v1.controllers.{DistrictNotFoundException, GameNotFoundException}
 import com.robocubs4205.cubscout.model.Event
 
 import scala.concurrent.ExecutionContext
