@@ -3,6 +3,7 @@ package com.robocubs4205.cubscout
 import java.sql.Date
 import java.time.temporal.ChronoField
 import java.time.{LocalDate, Year}
+import java.util.UUID
 import javax.inject.{Inject, Named}
 
 import com.robocubs4205.cubscout.model._
@@ -86,7 +87,7 @@ class CubScoutDb @Inject()(dbConfigProvider: DatabaseConfigProvider)(implicit ex
 
     def year = column[Year]("year")
 
-    def uniqueTypeYear = index("type_year_ux_games",(`type`,year),unique = true)
+    def uniqueTypeYear = index("type_year_ux_games", (`type`, year), unique = true)
 
     def * = (id, name, `type`, year) <> (Game.tupled, Game.unapply)
   }
@@ -102,7 +103,7 @@ class CubScoutDb @Inject()(dbConfigProvider: DatabaseConfigProvider)(implicit ex
 
     def `type` = column[String]("type")
 
-    def uniqueEventNumberType = index("event_number_type_ux_matches",(eventId,number,`type`),unique = true)
+    def uniqueEventNumberType = index("event_number_type_ux_matches", (eventId, number, `type`), unique = true)
 
     def * = (id, eventId, number, `type`) <> (Match.tupled, Match.unapply)
   }
@@ -120,7 +121,7 @@ class CubScoutDb @Inject()(dbConfigProvider: DatabaseConfigProvider)(implicit ex
 
     def districtFk = foreignKey("team_district_fk", districtId, districts)(_.id.?, onUpdate = Restrict, onDelete = Restrict)
 
-    def uniqueNumberGameType = index("number_gameType_ux_teams",(number,gameType),unique = true)
+    def uniqueNumberGameType = index("number_gameType_ux_teams", (number, gameType), unique = true)
 
     def * = (id, number, name, gameType, districtId) <> (Team.tupled, Team.unapply)
   }
@@ -138,12 +139,12 @@ class CubScoutDb @Inject()(dbConfigProvider: DatabaseConfigProvider)(implicit ex
 
     def name = column[Option[String]]("name")
 
-    def uniqueTeamGame = index("team_game_ux_robots",(teamId,gameId),unique = true)
+    def uniqueTeamGame = index("team_game_ux_robots", (teamId, gameId), unique = true)
 
     def * = (id, teamId, gameId, name) <> (Robot.tupled, Robot.unapply)
   }
 
-  class ResultTable(tag: Tag) extends Table[Result](tag, "teamsInMatches") {
+  class ResultTable(tag: Tag) extends Table[Result](tag, "results") {
     def id = column[Long]("id", O.AutoInc, O.PrimaryKey)
 
     def robotId = column[Long]("teamId")
@@ -161,6 +162,17 @@ class CubScoutDb @Inject()(dbConfigProvider: DatabaseConfigProvider)(implicit ex
     def * = (id, robotId, matchId, scorecardId) <> (Result.tupled, Result.unapply)
   }
 
+  class UserTable(tag: Tag) extends Table[User](tag, "users") {
+    def id = column[UUID]("id", O.PrimaryKey)
+
+    def username = column[String]("username", O.Unique)
+
+    def hashedPassword = column[String]("hashedPassword")
+
+    def * = (id, username, hashedPassword) <> (User.tupled, User.unapply)
+  }
+
+
   val districts = TableQuery[DistrictTable]
   val events = TableQuery[EventTable]
   val games = TableQuery[GameTable]
@@ -168,4 +180,5 @@ class CubScoutDb @Inject()(dbConfigProvider: DatabaseConfigProvider)(implicit ex
   val teams = TableQuery[TeamTable]
   val robots = TableQuery[RobotTable]
   val results = TableQuery[ResultTable]
+  val users = TableQuery[UserTable]
 }
