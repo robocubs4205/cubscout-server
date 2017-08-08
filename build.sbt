@@ -15,6 +15,10 @@ libraryDependencies += "com.typesafe.play" %% "play-slick-evolutions" % "3.0.0-M
 libraryDependencies += "com.h2database" % "h2" % "1.4.194"
 libraryDependencies += "io.lemonlabs" %% "scala-uri" % "0.4.16"
 libraryDependencies += evolutions
+libraryDependencies ++= Seq(
+  "com.nulab-inc" %% "scala-oauth2-core" % "1.3.0",
+  "com.nulab-inc" %% "play2-oauth2-provider" % "1.3.0"
+)
 
 // Adds additional packages into Twirl
 //TwirlKeys.templateImports += "com.robocubs4205.cubscout.controllers._"
