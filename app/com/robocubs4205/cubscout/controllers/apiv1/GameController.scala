@@ -5,7 +5,7 @@ import javax.inject.Inject
 import com.robocubs4205.cubscout._
 import com.robocubs4205.cubscout.controllers.EtagDoesNotMatchException
 import com.robocubs4205.cubscout.model._
-import com.robocubs4205.cubscout.service.GameService
+import com.robocubs4205.cubscout.services.GameService
 import play.Logger
 import play.api.libs.json.{JsError, JsSuccess, JsValue, Json}
 import play.api.mvc._

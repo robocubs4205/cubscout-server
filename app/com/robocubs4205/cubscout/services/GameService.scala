@@ -1,4 +1,4 @@
-package com.robocubs4205.cubscout.service
+package com.robocubs4205.cubscout.services
 
 import javax.inject.Inject
 
@@ -54,7 +54,7 @@ class GameService @Inject()(csdb: CubScoutDb)(implicit ec: ExecutionContext) {
   def doInsert(game: Game) = (games returning games.map(_.id) into ((game, id) => game.copy(id = id))) += game
 
   def doDelete(id: Long) = for {
-    foundGame <- games.filter(_.id === id).result.headOption
+    foundGame <- findById(id)
     _ <- games.filter(_.id === id).delete
   } yield foundGame
 

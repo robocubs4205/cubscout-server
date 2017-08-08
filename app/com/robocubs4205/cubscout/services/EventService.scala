@@ -1,4 +1,4 @@
-package com.robocubs4205.cubscout.service
+package com.robocubs4205.cubscout.services
 
 import javax.inject.Inject
 
@@ -53,7 +53,7 @@ class EventService @Inject()(csdb: CubScoutDb)(implicit ec: ExecutionContext) {
     events.filter(_.id === id).update(event.copy(id = id)).map(_ => Some(event.copy(id = id)))
 
   def doDelete(id: Long) = for {
-    event <- events.filter(_.id === id).result.headOption
+    event <- findById(id)
     _ <- events.filter(_.id === id).delete
   } yield event
 

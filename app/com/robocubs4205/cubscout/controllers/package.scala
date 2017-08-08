@@ -13,4 +13,5 @@ package object controllers {
 
   case class EventNotFoundException() extends RuntimeException("The specified event does not exist")
 
+  case class TeamNotFoundException() extends RuntimeException("The specified team does not exist")
 }
