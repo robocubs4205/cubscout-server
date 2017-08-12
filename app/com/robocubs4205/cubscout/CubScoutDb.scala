@@ -6,12 +6,16 @@ import java.time.{LocalDate, Year}
 import java.util.UUID
 import javax.inject.{Inject, Named}
 
+import com.netaporter.uri.Uri
 import com.robocubs4205.cubscout.model._
 import com.robocubs4205.cubscout.model.scorecard.Result
+import com.robocubs4205.cubscout.oauth.model._
+import com.robocubs4205.cubscout.oauth.model.Client._
 import play.api.Environment
 import play.api.Application
 import play.api.Mode.Test
 import play.api.db.slick.{DatabaseConfigProvider, DbName, DefaultSlickApi, SlickApi}
+import play.api.libs.json.{JsValue, Json}
 import slick.jdbc.JdbcProfile
 import slick.model.ForeignKeyAction.Restrict
 
@@ -28,14 +32,24 @@ class CubScoutDb @Inject()(dbConfigProvider: DatabaseConfigProvider)(implicit ex
   import dbConfig._
   import profile.api._
 
-  implicit val localDateToSqlDate = MappedColumnType.base[LocalDate, Date](
+  implicit val localDateMapping = MappedColumnType.base[LocalDate, Date](
     Date.valueOf,
     _.toLocalDate
   )
 
-  implicit val yearToLong = MappedColumnType.base[Year, Int](
+  implicit val yearMapping = MappedColumnType.base[Year, Int](
     _.get(ChronoField.YEAR),
     Year.of
+  )
+
+  implicit val jsonMapping = MappedColumnType.base[JsValue, String](
+    _.toString(),
+    Json.parse
+  )
+
+  implicit val uriMapping = MappedColumnType.base[Seq[Uri],String](
+    Json.toJson(_).toString,
+    s => Json.fromJson[Seq[Uri]](Json.parse(s)).get
   )
 
   class DistrictTable(tag: Tag) extends Table[District](tag, "districts") {
@@ -172,6 +186,55 @@ class CubScoutDb @Inject()(dbConfigProvider: DatabaseConfigProvider)(implicit ex
     def * = (id, username, hashedPassword) <> (User.tupled, User.unapply)
   }
 
+  class ServerClientsTable(tag: Tag) extends Table[ServerClient](tag, "serverClients") {
+    def id = column[UUID]("id", O.PrimaryKey)
+
+    def name = column[String]("name")
+
+    def author = column[String]("name")
+
+    def secret = column[UUID]("secret")
+
+    def redirectUris = column[Seq[Uri]]("uris")
+
+    def * = (id, name, author, secret,redirectUris) <> (ServerClient.tupled, ServerClient.unapply)
+  }
+
+  class BrowserClientsTable(tag: Tag) extends Table[BrowserClient](tag, "browserClients") {
+    def id = column[UUID]("id", O.PrimaryKey)
+
+    def name = column[String]("name")
+
+    def author = column[String]("name")
+
+    def redirectUris = column[Seq[Uri]]("uris")
+
+    def * = (id, name, author,redirectUris) <> (BrowserClient.tupled, BrowserClient.unapply)
+  }
+
+  class NativeClientsTable(tag: Tag) extends Table[NativeClient](tag, "nativeClients") {
+    def id = column[UUID]("id", O.PrimaryKey)
+
+    def name = column[String]("name")
+
+    def author = column[String]("name")
+
+    def redirectUris = column[Seq[Uri]]("uris")
+
+    def * = (id, name, author,redirectUris) <> (NativeClient.tupled, NativeClient.unapply)
+  }
+
+  class FirstPartyClientsTable(tag: Tag) extends Table[FirstPartyClient](tag, "firstPartyClients") {
+    def id = column[UUID]("id", O.PrimaryKey)
+
+    def name = column[String]("name")
+
+    def secret = column[Option[UUID]]("secret")
+
+    def redirectUris = column[Seq[Uri]]("uris")
+
+    def * = (id, name, secret, redirectUris) <> (FirstPartyClient.tupled,FirstPartyClient.unapply)
+  }
 
   val districts = TableQuery[DistrictTable]
   val events = TableQuery[EventTable]
@@ -180,5 +243,10 @@ class CubScoutDb @Inject()(dbConfigProvider: DatabaseConfigProvider)(implicit ex
   val teams = TableQuery[TeamTable]
   val robots = TableQuery[RobotTable]
   val results = TableQuery[ResultTable]
+
   val users = TableQuery[UserTable]
+  val serverClients = TableQuery[ServerClientsTable]
+  val browserClients = TableQuery[BrowserClientsTable]
+  val nativeClients = TableQuery[NativeClientsTable]
+  val firstPartyClients = TableQuery[FirstPartyClientsTable]
 }
