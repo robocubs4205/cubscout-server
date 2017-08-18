@@ -2,22 +2,23 @@ package com.robocubs4205.cubscout
 
 import java.sql.Date
 import java.time.temporal.ChronoField
-import java.time.{LocalDate, Year}
+import java.time.{Instant, LocalDate, Year}
 import java.util.UUID
 import javax.inject.{Inject, Named}
 
 import com.netaporter.uri.Uri
 import com.robocubs4205.cubscout.model._
 import com.robocubs4205.cubscout.model.scorecard.Result
-import com.robocubs4205.cubscout.oauth.model._
-import com.robocubs4205.cubscout.oauth.model.Client._
+import com.robocubs4205.cubscout.access.model.AccessToken.{AccessTokenWithRefreshToken, StandaloneAccessToken}
+import com.robocubs4205.cubscout.access.model._
+import com.robocubs4205.cubscout.access.model.Client._
 import play.api.Environment
 import play.api.Application
 import play.api.Mode.Test
 import play.api.db.slick.{DatabaseConfigProvider, DbName, DefaultSlickApi, SlickApi}
 import play.api.libs.json.{JsValue, Json}
 import slick.jdbc.JdbcProfile
-import slick.model.ForeignKeyAction.Restrict
+import slick.model.ForeignKeyAction.{Cascade, Restrict}
 
 import scala.concurrent.ExecutionContext
 
@@ -47,9 +48,19 @@ class CubScoutDb @Inject()(dbConfigProvider: DatabaseConfigProvider)(implicit ex
     Json.parse
   )
 
-  implicit val uriMapping = MappedColumnType.base[Seq[Uri],String](
+  implicit val uriMapping = MappedColumnType.base[Seq[Uri], String](
     Json.toJson(_).toString,
     s => Json.fromJson[Seq[Uri]](Json.parse(s)).get
+  )
+
+  implicit val instantMapping = MappedColumnType.base[Instant,java.sql.Time](
+    i => new java.sql.Time(i.get(ChronoField.MILLI_OF_SECOND)),
+    _.toInstant
+  )
+
+  implicit val TokenValMapping = MappedColumnType.base[TokenVal,String](
+    _.toString,
+    TokenVal(_).get
   )
 
   class DistrictTable(tag: Tag) extends Table[District](tag, "districts") {
@@ -177,7 +188,7 @@ class CubScoutDb @Inject()(dbConfigProvider: DatabaseConfigProvider)(implicit ex
   }
 
   class UserTable(tag: Tag) extends Table[User](tag, "users") {
-    def id = column[UUID]("id", O.PrimaryKey)
+    def id = column[TokenVal]("id", O.PrimaryKey)
 
     def username = column[String]("username", O.Unique)
 
@@ -187,21 +198,21 @@ class CubScoutDb @Inject()(dbConfigProvider: DatabaseConfigProvider)(implicit ex
   }
 
   class ServerClientsTable(tag: Tag) extends Table[ServerClient](tag, "serverClients") {
-    def id = column[UUID]("id", O.PrimaryKey)
+    def id = column[TokenVal]("id", O.PrimaryKey)
 
     def name = column[String]("name")
 
     def author = column[String]("name")
 
-    def secret = column[UUID]("secret")
+    def secret = column[TokenVal]("secret")
 
     def redirectUris = column[Seq[Uri]]("uris")
 
-    def * = (id, name, author, secret,redirectUris) <> (ServerClient.tupled, ServerClient.unapply)
+    def * = (id, name, author, secret, redirectUris) <> (ServerClient.tupled, ServerClient.unapply)
   }
 
   class BrowserClientsTable(tag: Tag) extends Table[BrowserClient](tag, "browserClients") {
-    def id = column[UUID]("id", O.PrimaryKey)
+    def id = column[TokenVal]("id", O.PrimaryKey)
 
     def name = column[String]("name")
 
@@ -209,11 +220,11 @@ class CubScoutDb @Inject()(dbConfigProvider: DatabaseConfigProvider)(implicit ex
 
     def redirectUris = column[Seq[Uri]]("uris")
 
-    def * = (id, name, author,redirectUris) <> (BrowserClient.tupled, BrowserClient.unapply)
+    def * = (id, name, author, redirectUris) <> (BrowserClient.tupled, BrowserClient.unapply)
   }
 
   class NativeClientsTable(tag: Tag) extends Table[NativeClient](tag, "nativeClients") {
-    def id = column[UUID]("id", O.PrimaryKey)
+    def id = column[TokenVal]("id", O.PrimaryKey)
 
     def name = column[String]("name")
 
@@ -221,19 +232,103 @@ class CubScoutDb @Inject()(dbConfigProvider: DatabaseConfigProvider)(implicit ex
 
     def redirectUris = column[Seq[Uri]]("uris")
 
-    def * = (id, name, author,redirectUris) <> (NativeClient.tupled, NativeClient.unapply)
+    def * = (id, name, author, redirectUris) <> (NativeClient.tupled, NativeClient.unapply)
   }
 
   class FirstPartyClientsTable(tag: Tag) extends Table[FirstPartyClient](tag, "firstPartyClients") {
-    def id = column[UUID]("id", O.PrimaryKey)
+    def id = column[TokenVal]("id", O.PrimaryKey)
 
     def name = column[String]("name")
 
-    def secret = column[Option[UUID]]("secret")
+    def secret = column[Option[TokenVal]]("secret")
 
     def redirectUris = column[Seq[Uri]]("uris")
 
-    def * = (id, name, secret, redirectUris) <> (FirstPartyClient.tupled,FirstPartyClient.unapply)
+    def * = (id, name, secret, redirectUris) <> (FirstPartyClient.tupled, FirstPartyClient.unapply)
+  }
+
+  class RefreshTokenTable(tag: Tag) extends Table[RefreshToken](tag, "refreshTokens") {
+    def selector = column[TokenVal]("selector", O.PrimaryKey)
+
+    def validator = column[TokenVal]("validator")
+
+    //no foreign key since clients are spread across multiple tables
+    def clientId = column[TokenVal]("clientId")
+
+    def userId = column[TokenVal]("userId")
+
+    def userFk = foreignKey("refreshToken_user_fk", userId, users)(_.id, onUpdate = Cascade, onDelete = Cascade)
+
+    def scopes = column[String]("scope")
+
+    private[this] def makeToken(selector:TokenVal,validator:TokenVal,clientId:TokenVal,userId:TokenVal,scopes:String) =
+      Scope.parseSeq(scopes).map(
+        scopes => RefreshToken(selector,validator,clientId,userId,scopes)
+      ).get
+
+    private[this] def explodeToken(token:RefreshToken) =
+      Some((token.selector,token.validator,token.clientId,token.userId,Scope.toString(token.scopes)))
+
+    def * = (selector, validator, clientId, userId,scopes) <> ((makeToken _).tupled, explodeToken)
+  }
+
+  class AccessTokenWithRefreshTokenTable(tag: Tag)
+    extends Table[AccessTokenWithRefreshToken](tag, "accessTokensWithRefreshTokens") {
+    def selector = column[TokenVal]("selector", O.PrimaryKey)
+
+    def validator = column[TokenVal]("validator")
+
+    def refreshTokenSelector = column[TokenVal]("refreshTokenSelector")
+
+    def refreshTokenFk = foreignKey(
+      "accessToken_refreshToken_fk", refreshTokenSelector, refreshTokens
+    )(_.selector, onUpdate = Cascade, onDelete = Cascade)
+
+    def created = column[Instant]("created")
+
+    def * = (selector,validator,refreshTokenSelector,created) <> (AccessTokenWithRefreshToken.tupled,AccessTokenWithRefreshToken.unapply)
+  }
+
+  class StandaloneAccessTokenTable(tag:Tag) extends Table[StandaloneAccessToken](tag,"standaloneAccessTokens") {
+    def selector = column[TokenVal]("selector", O.PrimaryKey)
+
+    def validator = column[TokenVal]("validator")
+
+    def clientId = column[TokenVal]("clientId")
+
+    def userId = column[TokenVal]("userId")
+
+    def userFk = foreignKey("standaloneAccessToken_user_fk", userId, users)(_.id, onUpdate = Cascade, onDelete = Cascade)
+
+    def created = column[Instant]("created")
+
+    def scopes = column[String]("scopes")
+
+    private[this] def makeToken(selector:TokenVal,validator:TokenVal,clientId:TokenVal,userId:TokenVal,scopes:String,created:Instant) =
+      Scope.parseSeq(scopes).map(
+        scopes => StandaloneAccessToken(selector,validator,clientId,userId,scopes,created)
+      ).get
+
+    private[this] def explodeToken(token:StandaloneAccessToken) =
+      Some((token.selector,token.validator,token.clientId,token.userId,Scope.toString(token.scopes),token.created))
+
+    def * = (selector,validator,clientId,userId,scopes,created) <> ((makeToken _).tupled,explodeToken)
+  }
+
+  class AuthCodeTable(tag:Tag) extends Table[AuthCode](tag,"authCodes"){
+    def selector = column[TokenVal]("selector",O.PrimaryKey)
+
+    def validator = column[TokenVal]("validator")
+
+    def clientId = column[TokenVal]("clientId")
+
+    def userId = column[TokenVal]("userId")
+
+    def userFk = foreignKey("authCode_user_fk",userId,users)(_.id,onUpdate = Cascade, onDelete = Cascade)
+
+    def redirectUrl = column[String]("redirectURL")
+
+    def * = (selector,validator,clientId,userId,redirectUrl) <> (AuthCode.tupled,AuthCode.unapply)
   }
 
   val districts = TableQuery[DistrictTable]
@@ -249,4 +344,9 @@ class CubScoutDb @Inject()(dbConfigProvider: DatabaseConfigProvider)(implicit ex
   val browserClients = TableQuery[BrowserClientsTable]
   val nativeClients = TableQuery[NativeClientsTable]
   val firstPartyClients = TableQuery[FirstPartyClientsTable]
+
+  val refreshTokens = TableQuery[RefreshTokenTable]
+  val accessTokensWithRefreshTokens = TableQuery[AccessTokenWithRefreshTokenTable]
+  val standaloneAccessTokens = TableQuery[StandaloneAccessTokenTable]
+  val authCodes = TableQuery[AuthCodeTable]
 }
