@@ -10,13 +10,13 @@ import scala.util.{Failure, Success, Try}
 sealed trait Scope
 
 object Scope {
-  def parseSeq(string:String):Try[Seq[Scope]] = {
-    val scopes = string.split(" ").toSeq.map(parse).partition(_.isSuccess)
-    if(scopes._2.isEmpty) Success(scopes._1.map(_.get))
-    else Failure(scopes._2.head.failed.get)
+  def parseSet(string:String):Try[Set[Scope]] = {
+    val (successes,failures) = string.split(" ").toSet.filter(_!="").map(parse).partition(_.isSuccess)
+    if(failures.isEmpty) Success(successes.map(_.get))
+    else Failure(failures.head.failed.get)
   }
 
-  def toString(scopes:Seq[Scope]) = scopes.map(_.toString()).mkString(" ")
+  def toString(scopes:Set[Scope]) = scopes.map(_.toString()).mkString(" ")
 
   def parse(string:String):Try[Scope] = string match {
     case SCORE_MATCHES => Success(ScoreMatches)

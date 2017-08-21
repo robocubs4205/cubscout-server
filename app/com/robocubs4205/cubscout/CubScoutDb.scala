@@ -12,8 +12,7 @@ import com.robocubs4205.cubscout.model.scorecard.Result
 import com.robocubs4205.cubscout.access.model.AccessToken.{AccessTokenWithRefreshToken, StandaloneAccessToken}
 import com.robocubs4205.cubscout.access.model._
 import com.robocubs4205.cubscout.access.model.Client._
-import play.api.Environment
-import play.api.Application
+import play.api.{Application, Environment, Logger}
 import play.api.Mode.Test
 import play.api.db.slick.{DatabaseConfigProvider, DbName, DefaultSlickApi, SlickApi}
 import play.api.libs.json.{JsValue, Json}
@@ -53,12 +52,12 @@ class CubScoutDb @Inject()(dbConfigProvider: DatabaseConfigProvider)(implicit ex
     s => Json.fromJson[Seq[Uri]](Json.parse(s)).get
   )
 
-  implicit val instantMapping = MappedColumnType.base[Instant,java.sql.Time](
+  implicit val instantMapping = MappedColumnType.base[Instant, java.sql.Time](
     i => new java.sql.Time(i.get(ChronoField.MILLI_OF_SECOND)),
     _.toInstant
   )
 
-  implicit val TokenValMapping = MappedColumnType.base[TokenVal,String](
+  implicit val TokenValMapping = MappedColumnType.base[TokenVal, String](
     _.toString,
     TokenVal(_).get
   )
@@ -261,15 +260,15 @@ class CubScoutDb @Inject()(dbConfigProvider: DatabaseConfigProvider)(implicit ex
 
     def scopes = column[String]("scope")
 
-    private[this] def makeToken(selector:TokenVal,validator:TokenVal,clientId:TokenVal,userId:TokenVal,scopes:String) =
-      Scope.parseSeq(scopes).map(
-        scopes => RefreshToken(selector,validator,clientId,userId,scopes)
+    private[this] def makeToken(selector: TokenVal, validator: TokenVal, clientId: TokenVal, userId: TokenVal, scopes: String) =
+      Scope.parseSet(scopes).map(
+        scopes => RefreshToken(selector, validator, clientId, userId, scopes)
       ).get
 
-    private[this] def explodeToken(token:RefreshToken) =
-      Some((token.selector,token.validator,token.clientId,token.userId,Scope.toString(token.scopes)))
+    private[this] def explodeToken(token: RefreshToken) =
+      Some((token.selector, token.validator, token.clientId, token.userId, Scope.toString(token.scopes)))
 
-    def * = (selector, validator, clientId, userId,scopes) <> ((makeToken _).tupled, explodeToken)
+    def * = (selector, validator, clientId, userId, scopes) <> ((makeToken _).tupled, explodeToken)
   }
 
   class AccessTokenWithRefreshTokenTable(tag: Tag)
@@ -286,10 +285,10 @@ class CubScoutDb @Inject()(dbConfigProvider: DatabaseConfigProvider)(implicit ex
 
     def created = column[Instant]("created")
 
-    def * = (selector,validator,refreshTokenSelector,created) <> (AccessTokenWithRefreshToken.tupled,AccessTokenWithRefreshToken.unapply)
+    def * = (selector, validator, refreshTokenSelector, created) <> (AccessTokenWithRefreshToken.tupled, AccessTokenWithRefreshToken.unapply)
   }
 
-  class StandaloneAccessTokenTable(tag:Tag) extends Table[StandaloneAccessToken](tag,"standaloneAccessTokens") {
+  class StandaloneAccessTokenTable(tag: Tag) extends Table[StandaloneAccessToken](tag, "standaloneAccessTokens") {
     def selector = column[TokenVal]("selector", O.PrimaryKey)
 
     def validator = column[TokenVal]("validator")
@@ -304,19 +303,19 @@ class CubScoutDb @Inject()(dbConfigProvider: DatabaseConfigProvider)(implicit ex
 
     def scopes = column[String]("scopes")
 
-    private[this] def makeToken(selector:TokenVal,validator:TokenVal,clientId:TokenVal,userId:TokenVal,scopes:String,created:Instant) =
-      Scope.parseSeq(scopes).map(
-        scopes => StandaloneAccessToken(selector,validator,clientId,userId,scopes,created)
+    private[this] def makeToken(selector: TokenVal, validator: TokenVal, clientId: TokenVal, userId: TokenVal, scopes: String, created: Instant) =
+      Scope.parseSet(scopes).map(
+        scopes => StandaloneAccessToken(selector, validator, clientId, userId, scopes, created)
       ).get
 
-    private[this] def explodeToken(token:StandaloneAccessToken) =
-      Some((token.selector,token.validator,token.clientId,token.userId,Scope.toString(token.scopes),token.created))
+    private[this] def explodeToken(token: StandaloneAccessToken) =
+      Some((token.selector, token.validator, token.clientId, token.userId, Scope.toString(token.scopes), token.created))
 
-    def * = (selector,validator,clientId,userId,scopes,created) <> ((makeToken _).tupled,explodeToken)
+    def * = (selector, validator, clientId, userId, scopes, created) <> ((makeToken _).tupled, explodeToken)
   }
 
-  class AuthCodeTable(tag:Tag) extends Table[AuthCode](tag,"authCodes"){
-    def selector = column[TokenVal]("selector",O.PrimaryKey)
+  class AuthCodeTable(tag: Tag) extends Table[AuthCode](tag, "authCodes") {
+    def selector = column[TokenVal]("selector", O.PrimaryKey)
 
     def validator = column[TokenVal]("validator")
 
@@ -324,11 +323,11 @@ class CubScoutDb @Inject()(dbConfigProvider: DatabaseConfigProvider)(implicit ex
 
     def userId = column[TokenVal]("userId")
 
-    def userFk = foreignKey("authCode_user_fk",userId,users)(_.id,onUpdate = Cascade, onDelete = Cascade)
+    def userFk = foreignKey("authCode_user_fk", userId, users)(_.id, onUpdate = Cascade, onDelete = Cascade)
 
     def redirectUrl = column[String]("redirectURL")
 
-    def * = (selector,validator,clientId,userId,redirectUrl) <> (AuthCode.tupled,AuthCode.unapply)
+    def * = (selector, validator, clientId, userId, redirectUrl) <> (AuthCode.tupled, AuthCode.unapply)
   }
 
   val districts = TableQuery[DistrictTable]

@@ -31,7 +31,7 @@ object AccessToken {
     validator:TokenVal,
     clientId:TokenVal,
     userId:TokenVal,
-    scopes: Seq[Scope],
+    scopes: Set[Scope],
     created:Instant = Instant.now()
   ) extends AccessToken
 
