@@ -8,7 +8,7 @@ import scala.util.Try
   * Created by trevor on 8/7/17.
   */
 case class RefreshToken (selector:TokenVal,validator:TokenVal,clientId:TokenVal,userId:TokenVal,scopes:Set[Scope]) {
-  def toTokenString = Seq(selector.toString,validator.toString).mkString("_")
+  def tokenString = Seq(selector.toString,validator.toString).mkString("_")
 }
 
 object RefreshToken {

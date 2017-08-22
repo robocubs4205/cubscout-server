@@ -10,6 +10,9 @@ import scala.concurrent.{ExecutionContext, Future}
 import scalaoauth2.provider.{AccessToken => ProviderAccessToken, RefreshToken => ProviderRefreshToken, _}
 import com.github.t3hnar.bcrypt._
 import com.robocubs4205.cubscout.access.model.AccessToken.{AccessTokenRep, AccessTokenWithRefreshToken, StandaloneAccessToken}
+import com.robocubs4205.cubscout.access.model.Client.ClientWithSecret
+import slick.dbio.DBIOAction
+import com.netaporter.uri.Uri
 
 import scala.util.{Failure, Success, Try}
 
@@ -27,7 +30,8 @@ class CubScoutDataHandler @Inject()(private[access] val csdb: CubScoutDb)(implic
       token => db.run {
         for {
           standaloneAccessToken <- standaloneAccessTokens.filter(_.selector === token.selector).result.headOption
-          accessTokenWithRefreshToken <- accessTokensWithRefreshTokens.filter(_.selector === token.selector).result.headOption
+          accessTokenWithRefreshToken <- accessTokensWithRefreshTokens.filter(_.selector === token.selector).result
+            .headOption
           authInfo <- standaloneAccessToken.map(authInfoFrom) orElse
             accessTokenWithRefreshToken.map(authInfoFrom) getOrElse DBIO.successful(None)
         } yield authInfo
@@ -68,7 +72,7 @@ class CubScoutDataHandler @Inject()(private[access] val csdb: CubScoutDb)(implic
       client.redirectUris.headOption.map(_.toString)
     )
 
-  private def clientWithId(clientId: TokenVal): DBIO[Option[Client]] =
+  private[this] def clientWithId(clientId: TokenVal): DBIO[Option[Client]] =
     for {
       firstPartyClient <- firstPartyClients.filter(_.id === clientId).result.headOption
       serverClient <- serverClients.filter(_.id === clientId).result.headOption
@@ -83,31 +87,37 @@ class CubScoutDataHandler @Inject()(private[access] val csdb: CubScoutDb)(implic
     AccessToken.parse(token).map {
       token => db.run {
         for {
-          accessTokenWithRefreshToken <- accessTokensWithRefreshTokens.filter(_.selector === token.selector).result.headOption
+          accessTokenWithRefreshToken <- accessTokensWithRefreshTokens.filter(_.selector === token.selector).result
+            .headOption
           standaloneAccessToken <- standaloneAccessTokens.filter(_.selector === token.selector).result.headOption
-          providerAccessToken <- accessTokenWithRefreshToken.map(ProviderAccessTokenFrom) orElse
-            standaloneAccessToken.map(ProviderAccessTokenFrom) getOrElse
+          providerAccessToken <- accessTokenWithRefreshToken.map(providerAccessTokenFrom) orElse
+            standaloneAccessToken.map(providerAccessTokenFrom) getOrElse
             DBIO.successful(None)
         } yield providerAccessToken
       }
     }.getOrElse(Future(None))
 
-  private def ProviderAccessTokenFrom(accessTokenWithRefreshToken: AccessTokenWithRefreshToken): DBIO[Option[ProviderAccessToken]] =
+  private[access] def providerAccessTokenFrom(accessTokenWithRefreshToken: AccessTokenWithRefreshToken): DBIO[Option[ProviderAccessToken]] =
     for {
-      refreshToken <- refreshTokens.filter(_.selector === accessTokenWithRefreshToken.refreshTokenSelector).result.headOption
-    } yield refreshToken.map {
-      refreshToken => ProviderAccessToken(
-        accessTokenWithRefreshToken.toTokenString,
-        Some(refreshToken.toTokenString),
+      refreshToken <- refreshTokens.filter(_.selector === accessTokenWithRefreshToken.refreshTokenSelector).result
+        .headOption
+      providerAccessToken <- refreshToken.map(providerAccessTokenFrom(accessTokenWithRefreshToken, _))
+        .getOrElse(DBIO.successful(None))
+    } yield providerAccessToken
+
+  private[access] def providerAccessTokenFrom(accessTokenWithRefreshToken: AccessTokenWithRefreshToken, refreshToken: RefreshToken): DBIO[Option[ProviderAccessToken]] =
+    DBIO.successful(if (accessTokenWithRefreshToken.refreshTokenSelector != refreshToken.selector) None else
+      Some(ProviderAccessToken(
+        accessTokenWithRefreshToken.tokenString,
+        Some(refreshToken.tokenString),
         if (refreshToken.scopes.isEmpty) None else Some(Scope.toString(refreshToken.scopes)),
         None,
         Date.from(accessTokenWithRefreshToken.created)
-      )
-    }
+      )))
 
-  private def ProviderAccessTokenFrom(standaloneAccessToken: StandaloneAccessToken): DBIO[Option[ProviderAccessToken]] =
+  private[access] def providerAccessTokenFrom(standaloneAccessToken: StandaloneAccessToken): DBIO[Option[ProviderAccessToken]] =
     DBIO.successful(Some(ProviderAccessToken(
-      standaloneAccessToken.toTokenString,
+      standaloneAccessToken.tokenString,
       None,
       if (standaloneAccessToken.scopes.isEmpty) None else Some(Scope.toString(standaloneAccessToken.scopes)),
       None,
@@ -121,8 +131,9 @@ class CubScoutDataHandler @Inject()(private[access] val csdb: CubScoutDb)(implic
     credential => db.run {
       TokenVal(credential.clientId).map {
         id => request match {
-          case _: RefreshTokenRequest =>
-            (for {
+          //only allowed for clients that can keep a secret
+          case r: RefreshTokenRequest => {
+            for {
               secret <- credential.clientSecret
               secret <- TokenVal(secret).toOption
             } yield for {
@@ -130,7 +141,9 @@ class CubScoutDataHandler @Inject()(private[access] val csdb: CubScoutDb)(implic
               firstPartyClient <- firstPartyClients.filter(_.id === id).filter(_.secret.isDefined)
                 .result.headOption
             } yield (serverClient.isDefined && serverClient.get.secret == secret) ||
-              (firstPartyClient.isDefined && firstPartyClient.get.secret.get == secret)).getOrElse(DBIO.successful(false))
+              (firstPartyClient.isDefined && firstPartyClient.get.secret.get == secret)
+          }.getOrElse(DBIO.successful(false))
+          //only allowed for first party clients
           case _: PasswordRequest => {
             for {
               secret <- credential.clientSecret
@@ -145,18 +158,24 @@ class CubScoutDataHandler @Inject()(private[access] val csdb: CubScoutDb)(implic
               firstPartyClient <- firstPartyClients.filter(_.id === id).filter(_.secret.isEmpty).result.headOption
             } yield firstPartyClient.isDefined
           }
+          //only allowed for clients that can NOT keep a secret
           case r: AuthorizationCodeRequest => for {
             browserClient <- browserClients.filter(_.id === id).result.headOption
-            nativeApp <- nativeClients.filter(_.id === id).result.headOption
+            nativeClient <- nativeClients.filter(_.id === id).result.headOption
             firstPartyClient <- firstPartyClients.filter(_.id === id).result.headOption
-          } yield browserClient.isDefined || (nativeApp.isDefined && r.param("code_challenge").isDefined) ||
-            firstPartyClient.isDefined
+          } yield (for {
+            redirectUri <- r.redirectUri.map(Uri.parse(_))
+            sameUri <- browserClient.map(_.redirectUris.contains(redirectUri)) orElse
+              nativeClient.map(_.redirectUris.contains(redirectUri))
+                .map(_ && r.param("code_challenge").isDefined) orElse
+              firstPartyClient.map(_.redirectUris.contains(redirectUri))
+          } yield sameUri) getOrElse false
+
+            //other grant types not allowed
           case _ => DBIO.successful(false)
         }
       }.getOrElse(DBIO.successful(false))
     }
-  }.recover {
-    case _ => false
   }
 
   override def findUser(
@@ -175,45 +194,34 @@ class CubScoutDataHandler @Inject()(private[access] val csdb: CubScoutDb)(implic
   override def createAccessToken(authInfo: AuthInfo[User]): Future[ProviderAccessToken] =
     db.run({
       for {
-        clientId <- authInfo.clientId.fold[Try[String]](Failure(NoClientIdException))(Success(_))
-          .flatMap(TokenVal(_))
+        clientId <- authInfo.clientId.fold[Try[TokenVal]](Failure(NoClientIdException))(TokenVal(_))
         scopes <- authInfo.scope.fold[Try[Set[Scope]]](Success(Set()))(Scope.parseSet)
         token = StandaloneAccessToken(TokenVal(), TokenVal(), clientId, authInfo.user.id, scopes)
       } yield for {
         _ <- standaloneAccessTokens += token
-      } yield ProviderAccessTokenFrom(token)
-    }.recover{
-      case t:Throwable => DBIO.failed(t)
-    }.get.flatten.map(_.get))
-
+        providerAccessToken <- providerAccessTokenFrom(token)
+      } yield providerAccessToken
+    }.recover {
+      case t: Throwable => DBIO.failed(t)
+    }.get).map(_.get)
 
   override def getStoredAccessToken(authInfo: AuthInfo[User]): Future[Option[ProviderAccessToken]] =
     db.run {
       val tokenWithRefresh = for {
         refreshToken <- refreshTokens.filter(_.userId === authInfo.user.id).result.headOption
         accessToken <- accessTokensWithRefreshTokens.filter(_.refreshTokenSelector === refreshToken.get.selector).result.headOption if refreshToken.isDefined
-      } yield for {
-        refreshToken <- refreshToken
-        accessToken <- accessToken
-      } yield ProviderAccessToken(
-        accessToken.toTokenString,
-        Some(refreshToken.toTokenString),
-        None,
-        None,
-        Date.from(accessToken.created)
-      )
+        providerAccessToken <- {
+          for {
+            refreshToken <- refreshToken
+            accessToken <- accessToken
+          } yield providerAccessTokenFrom(accessToken, refreshToken)
+        }.getOrElse(DBIO.successful(None))
+      } yield providerAccessToken
 
       val standaloneToken = for {
         accessToken <- standaloneAccessTokens.filter(_.userId === authInfo.user.id).result.headOption
-      } yield for {
-        accessToken <- accessToken
-      } yield ProviderAccessToken(
-        accessToken.toTokenString,
-        None,
-        None,
-        None,
-        Date.from(accessToken.created)
-      )
+        providerAccessToken <- accessToken.map(providerAccessTokenFrom).getOrElse(DBIO.successful(None))
+      } yield providerAccessToken
 
       for {
         standaloneToken <- standaloneToken
@@ -221,29 +229,31 @@ class CubScoutDataHandler @Inject()(private[access] val csdb: CubScoutDb)(implic
       } yield standaloneToken.map(Some(_)) orElse tokenWithRefresh.map(Some(_)) getOrElse None
     }
 
-
   override def refreshAccessToken(authInfo: AuthInfo[User], refreshToken: String): Future[ProviderAccessToken] =
-    Future(RefreshToken.parse(refreshToken)).flatMap(
-      _.map(
-        token => db.run({
-          for {
-            refreshToken <- refreshTokens.filter(_.selector === token.selector).result.headOption
-            accessToken <- (accessTokensWithRefreshTokens returning accessTokensWithRefreshTokens) +=
+    Future.fromTry(RefreshToken.parse(refreshToken)).flatMap {
+      token => db.run {
+        for {
+          refreshToken <- refreshTokens.filter(_.selector === token.selector).result.headOption
+          accessToken <- refreshToken.map {
+            refreshToken => (accessTokensWithRefreshTokens returning accessTokensWithRefreshTokens) +=
               AccessTokenWithRefreshToken(
                 TokenVal(),
                 TokenVal(),
-                refreshToken.get.selector
+                refreshToken.selector
               )
-          } yield ProviderAccessToken(
-            accessToken.toTokenString,
-            Some(refreshToken.get.toTokenString),
-            None,
-            None,
-            Date.from(accessToken.created)
-          )
-        })
-      ).get
-    )
+          }.map(_.map(Some(_))).getOrElse(DBIO.successful(None))
+          providerAccessToken <- {
+            for {
+              refreshToken <- refreshToken
+              accessToken <- accessToken
+            } yield providerAccessTokenFrom(accessToken, refreshToken)
+          }.getOrElse(DBIO.successful(None))
+        } yield providerAccessToken
+      }
+    }.flatMap {
+      case None => Future.failed(InvalidRefreshTokenException)
+      case Some(a) => Future(a)
+    }
 
   override def findAuthInfoByCode(code: String): Future[Option[AuthInfo[User]]] =
     AuthCode.parse(code).map(
@@ -274,5 +284,7 @@ class CubScoutDataHandler @Inject()(private[access] val csdb: CubScoutDb)(implic
   case object InvalidScopeException extends IllegalArgumentException("invalid scope or scopes")
 
   case object NoClientIdException extends IllegalArgumentException("No client id")
+
+  case object InvalidRefreshTokenException extends IllegalArgumentException("the specified refresh token is invalid")
 
 }

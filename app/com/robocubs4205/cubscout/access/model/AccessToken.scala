@@ -14,7 +14,7 @@ trait AccessToken {
 
   def created: Instant
 
-  def toTokenString = Seq(selector.toString, validator.toString).mkString("_")
+  def tokenString = Seq(selector.toString, validator.toString).mkString("_")
 }
 
 object AccessToken {
