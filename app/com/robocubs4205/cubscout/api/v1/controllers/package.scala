@@ -1,4 +1,4 @@
-package com.robocubs4205.cubscout
+package com.robocubs4205.cubscout.api.v1
 
 /**
   * Created by trevor on 8/3/17.

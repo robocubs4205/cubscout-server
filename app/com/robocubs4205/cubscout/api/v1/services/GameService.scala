@@ -1,4 +1,4 @@
-package com.robocubs4205.cubscout.services
+package com.robocubs4205.cubscout.api.v1.services
 
 import javax.inject.Inject
 

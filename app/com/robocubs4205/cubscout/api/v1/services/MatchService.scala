@@ -1,9 +1,9 @@
-package com.robocubs4205.cubscout.services
+package com.robocubs4205.cubscout.api.v1.services
 
 import javax.inject.Inject
 
 import com.robocubs4205.cubscout.CubScoutDb
-import com.robocubs4205.cubscout.controllers.EventNotFoundException
+import com.robocubs4205.cubscout.api.v1.controllers.EventNotFoundException
 import com.robocubs4205.cubscout.model.Match
 
 import scala.concurrent.ExecutionContext

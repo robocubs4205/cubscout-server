@@ -2,6 +2,7 @@ package com.robocubs4205
 
 import java.time.{LocalDate, Year}
 
+import com.netaporter.uri.Uri
 import play.api.libs.json._
 
 import scala.collection.Seq
@@ -24,6 +25,14 @@ package object cubscout {
     value.validate[Int].flatMap(i =>
       Try(Year.of(i)).map(JsSuccess(_)).recover {
         case _ => JsError(Seq(JsPath -> Seq(JsonValidationError("error.invalidYear"))))
+      }.get
+    )
+  }
+  implicit val UriWrites: Writes[Uri] = uri => JsString(uri.toString())
+  implicit val UriReads:Reads[Uri] = {value:JsValue =>
+    value.validate[String].flatMap(s =>
+      Try(Uri.parse(s)).map(JsSuccess(_)).recover {
+        case _ => JsError(Seq(JsPath -> Seq(JsonValidationError("error.invalidUri"))))
       }.get
     )
   }

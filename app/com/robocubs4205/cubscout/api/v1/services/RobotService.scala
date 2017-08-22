@@ -1,9 +1,9 @@
-package com.robocubs4205.cubscout.services
+package com.robocubs4205.cubscout.api.v1.services
 
 import javax.inject.Inject
 
 import com.robocubs4205.cubscout.CubScoutDb
-import com.robocubs4205.cubscout.controllers.{GameNotFoundException, TeamNotFoundException}
+import com.robocubs4205.cubscout.api.v1.controllers.{GameNotFoundException, TeamNotFoundException}
 import com.robocubs4205.cubscout.model.Robot
 
 import scala.concurrent.ExecutionContext

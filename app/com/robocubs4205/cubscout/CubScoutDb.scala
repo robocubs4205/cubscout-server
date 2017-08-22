@@ -1,18 +1,23 @@
 package com.robocubs4205.cubscout
 
-import java.sql.Date
+import java.sql.{Date, Timestamp}
 import java.time.temporal.ChronoField
-import java.time.{LocalDate, Year}
+import java.time.{Instant, LocalDate, Year}
+import java.util.UUID
 import javax.inject.{Inject, Named}
 
+import com.netaporter.uri.Uri
 import com.robocubs4205.cubscout.model._
 import com.robocubs4205.cubscout.model.scorecard.Result
-import play.api.Environment
-import play.api.Application
+import com.robocubs4205.cubscout.access.model.AccessToken.{AccessTokenWithRefreshToken, StandaloneAccessToken}
+import com.robocubs4205.cubscout.access.model._
+import com.robocubs4205.cubscout.access.model.Client._
+import play.api.{Application, Environment, Logger}
 import play.api.Mode.Test
 import play.api.db.slick.{DatabaseConfigProvider, DbName, DefaultSlickApi, SlickApi}
+import play.api.libs.json.{JsValue, Json}
 import slick.jdbc.JdbcProfile
-import slick.model.ForeignKeyAction.Restrict
+import slick.model.ForeignKeyAction.{Cascade, Restrict}
 
 import scala.concurrent.ExecutionContext
 
@@ -27,14 +32,34 @@ class CubScoutDb @Inject()(dbConfigProvider: DatabaseConfigProvider)(implicit ex
   import dbConfig._
   import profile.api._
 
-  implicit val localDateToSqlDate = MappedColumnType.base[LocalDate, Date](
+  implicit val localDateMapping = MappedColumnType.base[LocalDate, Date](
     Date.valueOf,
     _.toLocalDate
   )
 
-  implicit val yearToLong = MappedColumnType.base[Year, Int](
+  implicit val yearMapping = MappedColumnType.base[Year, Int](
     _.get(ChronoField.YEAR),
     Year.of
+  )
+
+  implicit val jsonMapping = MappedColumnType.base[JsValue, String](
+    _.toString(),
+    Json.parse
+  )
+
+  implicit val uriMapping = MappedColumnType.base[Seq[Uri], String](
+    Json.toJson(_).toString,
+    s => Json.fromJson[Seq[Uri]](Json.parse(s)).get
+  )
+
+  implicit val instantMapping = MappedColumnType.base[Instant, java.sql.Timestamp](
+    i => new Timestamp(i.get(ChronoField.MILLI_OF_SECOND)),
+    _.toInstant
+  )
+
+  implicit val TokenValMapping = MappedColumnType.base[TokenVal, String](
+    _.toString,
+    TokenVal(_).get
   )
 
   class DistrictTable(tag: Tag) extends Table[District](tag, "districts") {
@@ -86,7 +111,7 @@ class CubScoutDb @Inject()(dbConfigProvider: DatabaseConfigProvider)(implicit ex
 
     def year = column[Year]("year")
 
-    def uniqueTypeYear = index("type_year_ux_games",(`type`,year),unique = true)
+    def uniqueTypeYear = index("type_year_ux_games", (`type`, year), unique = true)
 
     def * = (id, name, `type`, year) <> (Game.tupled, Game.unapply)
   }
@@ -102,7 +127,7 @@ class CubScoutDb @Inject()(dbConfigProvider: DatabaseConfigProvider)(implicit ex
 
     def `type` = column[String]("type")
 
-    def uniqueEventNumberType = index("event_number_type_ux_matches",(eventId,number,`type`),unique = true)
+    def uniqueEventNumberType = index("event_number_type_ux_matches", (eventId, number, `type`), unique = true)
 
     def * = (id, eventId, number, `type`) <> (Match.tupled, Match.unapply)
   }
@@ -120,7 +145,7 @@ class CubScoutDb @Inject()(dbConfigProvider: DatabaseConfigProvider)(implicit ex
 
     def districtFk = foreignKey("team_district_fk", districtId, districts)(_.id.?, onUpdate = Restrict, onDelete = Restrict)
 
-    def uniqueNumberGameType = index("number_gameType_ux_teams",(number,gameType),unique = true)
+    def uniqueNumberGameType = index("number_gameType_ux_teams", (number, gameType), unique = true)
 
     def * = (id, number, name, gameType, districtId) <> (Team.tupled, Team.unapply)
   }
@@ -138,12 +163,12 @@ class CubScoutDb @Inject()(dbConfigProvider: DatabaseConfigProvider)(implicit ex
 
     def name = column[Option[String]]("name")
 
-    def uniqueTeamGame = index("team_game_ux_robots",(teamId,gameId),unique = true)
+    def uniqueTeamGame = index("team_game_ux_robots", (teamId, gameId), unique = true)
 
     def * = (id, teamId, gameId, name) <> (Robot.tupled, Robot.unapply)
   }
 
-  class ResultTable(tag: Tag) extends Table[Result](tag, "teamsInMatches") {
+  class ResultTable(tag: Tag) extends Table[Result](tag, "results") {
     def id = column[Long]("id", O.AutoInc, O.PrimaryKey)
 
     def robotId = column[Long]("teamId")
@@ -161,6 +186,150 @@ class CubScoutDb @Inject()(dbConfigProvider: DatabaseConfigProvider)(implicit ex
     def * = (id, robotId, matchId, scorecardId) <> (Result.tupled, Result.unapply)
   }
 
+  class UserTable(tag: Tag) extends Table[User](tag, "users") {
+    def id = column[TokenVal]("id", O.PrimaryKey)
+
+    def username = column[String]("username", O.Unique)
+
+    def hashedPassword = column[String]("hashedPassword")
+
+    def * = (id, username, hashedPassword) <> (User.tupled, User.unapply)
+  }
+
+  class ServerClientsTable(tag: Tag) extends Table[ServerClient](tag, "serverClients") {
+    def id = column[TokenVal]("id", O.PrimaryKey)
+
+    def name = column[String]("name")
+
+    def author = column[String]("name")
+
+    def secret = column[TokenVal]("secret")
+
+    def redirectUris = column[Seq[Uri]]("uris")
+
+    def * = (id, name, author, secret, redirectUris) <> (ServerClient.tupled, ServerClient.unapply)
+  }
+
+  class BrowserClientsTable(tag: Tag) extends Table[BrowserClient](tag, "browserClients") {
+    def id = column[TokenVal]("id", O.PrimaryKey)
+
+    def name = column[String]("name")
+
+    def author = column[String]("name")
+
+    def redirectUris = column[Seq[Uri]]("uris")
+
+    def * = (id, name, author, redirectUris) <> (BrowserClient.tupled, BrowserClient.unapply)
+  }
+
+  class NativeClientsTable(tag: Tag) extends Table[NativeClient](tag, "nativeClients") {
+    def id = column[TokenVal]("id", O.PrimaryKey)
+
+    def name = column[String]("name")
+
+    def author = column[String]("name")
+
+    def redirectUris = column[Seq[Uri]]("uris")
+
+    def * = (id, name, author, redirectUris) <> (NativeClient.tupled, NativeClient.unapply)
+  }
+
+  class FirstPartyClientsTable(tag: Tag) extends Table[FirstPartyClient](tag, "firstPartyClients") {
+    def id = column[TokenVal]("id", O.PrimaryKey)
+
+    def name = column[String]("name")
+
+    def secret = column[Option[TokenVal]]("secret")
+
+    def redirectUris = column[Seq[Uri]]("uris")
+
+    def * = (id, name, secret, redirectUris) <> (FirstPartyClient.tupled, FirstPartyClient.unapply)
+  }
+
+  class RefreshTokenTable(tag: Tag) extends Table[RefreshToken](tag, "refreshTokens") {
+    def selector = column[TokenVal]("selector", O.PrimaryKey)
+
+    def validator = column[TokenVal]("validator")
+
+    //no foreign key since clients are spread across multiple tables
+    def clientId = column[TokenVal]("clientId")
+
+    def userId = column[TokenVal]("userId")
+
+    def userFk = foreignKey("refreshToken_user_fk", userId, users)(_.id, onUpdate = Cascade, onDelete = Cascade)
+
+    def scopes = column[String]("scope")
+
+    private[this] def makeToken(selector: TokenVal, validator: TokenVal, clientId: TokenVal, userId: TokenVal, scopes: String) =
+      Scope.parseSet(scopes).map(
+        scopes => RefreshToken(selector, validator, clientId, userId, scopes)
+      ).get
+
+    private[this] def explodeToken(token: RefreshToken) =
+      Some((token.selector, token.validator, token.clientId, token.userId, Scope.toString(token.scopes)))
+
+    def * = (selector, validator, clientId, userId, scopes) <> ((makeToken _).tupled, explodeToken)
+  }
+
+  class AccessTokenWithRefreshTokenTable(tag: Tag)
+    extends Table[AccessTokenWithRefreshToken](tag, "accessTokensWithRefreshTokens") {
+    def selector = column[TokenVal]("selector", O.PrimaryKey)
+
+    def validator = column[TokenVal]("validator")
+
+    def refreshTokenSelector = column[TokenVal]("refreshTokenSelector")
+
+    def refreshTokenFk = foreignKey(
+      "accessToken_refreshToken_fk", refreshTokenSelector, refreshTokens
+    )(_.selector, onUpdate = Cascade, onDelete = Cascade)
+
+    def created = column[Instant]("created")
+
+    def * = (selector, validator, refreshTokenSelector, created) <> (AccessTokenWithRefreshToken.tupled, AccessTokenWithRefreshToken.unapply)
+  }
+
+  class StandaloneAccessTokenTable(tag: Tag) extends Table[StandaloneAccessToken](tag, "standaloneAccessTokens") {
+    def selector = column[TokenVal]("selector", O.PrimaryKey)
+
+    def validator = column[TokenVal]("validator")
+
+    def clientId = column[TokenVal]("clientId")
+
+    def userId = column[TokenVal]("userId")
+
+    def userFk = foreignKey("standaloneAccessToken_user_fk", userId, users)(_.id, onUpdate = Cascade, onDelete = Cascade)
+
+    def created = column[Instant]("created")
+
+    def scopes = column[String]("scopes")
+
+    private[this] def makeToken(selector: TokenVal, validator: TokenVal, clientId: TokenVal, userId: TokenVal, scopes: String, created: Instant) =
+      Scope.parseSet(scopes).map(
+        scopes => StandaloneAccessToken(selector, validator, clientId, userId, scopes, created)
+      ).get
+
+    private[this] def explodeToken(token: StandaloneAccessToken) =
+      Some((token.selector, token.validator, token.clientId, token.userId, Scope.toString(token.scopes), token.created))
+
+    def * = (selector, validator, clientId, userId, scopes, created) <> ((makeToken _).tupled, explodeToken)
+  }
+
+  class AuthCodeTable(tag: Tag) extends Table[AuthCode](tag, "authCodes") {
+    def selector = column[TokenVal]("selector", O.PrimaryKey)
+
+    def validator = column[TokenVal]("validator")
+
+    def clientId = column[TokenVal]("clientId")
+
+    def userId = column[TokenVal]("userId")
+
+    def userFk = foreignKey("authCode_user_fk", userId, users)(_.id, onUpdate = Cascade, onDelete = Cascade)
+
+    def redirectUrl = column[String]("redirectURL")
+
+    def * = (selector, validator, clientId, userId, redirectUrl) <> (AuthCode.tupled, AuthCode.unapply)
+  }
+
   val districts = TableQuery[DistrictTable]
   val events = TableQuery[EventTable]
   val games = TableQuery[GameTable]
@@ -168,4 +337,15 @@ class CubScoutDb @Inject()(dbConfigProvider: DatabaseConfigProvider)(implicit ex
   val teams = TableQuery[TeamTable]
   val robots = TableQuery[RobotTable]
   val results = TableQuery[ResultTable]
+
+  val users = TableQuery[UserTable]
+  val serverClients = TableQuery[ServerClientsTable]
+  val browserClients = TableQuery[BrowserClientsTable]
+  val nativeClients = TableQuery[NativeClientsTable]
+  val firstPartyClients = TableQuery[FirstPartyClientsTable]
+
+  val refreshTokens = TableQuery[RefreshTokenTable]
+  val accessTokensWithRefreshTokens = TableQuery[AccessTokenWithRefreshTokenTable]
+  val standaloneAccessTokens = TableQuery[StandaloneAccessTokenTable]
+  val authCodes = TableQuery[AuthCodeTable]
 }

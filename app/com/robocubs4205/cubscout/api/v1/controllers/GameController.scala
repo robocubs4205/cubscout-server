@@ -1,11 +1,10 @@
-package com.robocubs4205.cubscout.controllers.apiv1
+package com.robocubs4205.cubscout.api.v1.controllers
 
 import javax.inject.Inject
 
 import com.robocubs4205.cubscout._
-import com.robocubs4205.cubscout.controllers.EtagDoesNotMatchException
+import com.robocubs4205.cubscout.api.v1.services.GameService
 import com.robocubs4205.cubscout.model._
-import com.robocubs4205.cubscout.services.GameService
 import play.Logger
 import play.api.libs.json.{JsError, JsSuccess, JsValue, Json}
 import play.api.mvc._
@@ -22,9 +21,8 @@ class GameController @Inject()(cc: ControllerComponents, csdb: CubScoutDb, gameS
 
   import csdb._
   import dbConfig._
-  import profile.api._
-
   import gameService._
+  import profile.api._
 
   val gameEtagWriter = implicitly[EtagWriter[Game]]
 
@@ -51,7 +49,7 @@ class GameController @Inject()(cc: ControllerComponents, csdb: CubScoutDb, gameS
       }.flatMap(game => Future(game).map(JsonResponseWrapper(_)).map(Json.toJson(_)).map(Created(_))
         .map(_.withHeaders(
           (ETAG, gameEtagWriter.etag(game)),
-          (LOCATION, controllers.apiv1.routes.GameController.get(game.id, None).url)
+          (LOCATION, routes.GameController.get(game.id, None).url)
         ))
       ).recoverWith {
         case e: GameWithSameNameExistsException =>
