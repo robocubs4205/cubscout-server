@@ -1,6 +1,6 @@
 package com.robocubs4205.cubscout
 
-import java.sql.Date
+import java.sql.{Date, Timestamp}
 import java.time.temporal.ChronoField
 import java.time.{Instant, LocalDate, Year}
 import java.util.UUID
@@ -52,8 +52,8 @@ class CubScoutDb @Inject()(dbConfigProvider: DatabaseConfigProvider)(implicit ex
     s => Json.fromJson[Seq[Uri]](Json.parse(s)).get
   )
 
-  implicit val instantMapping = MappedColumnType.base[Instant, java.sql.Time](
-    i => new java.sql.Time(i.get(ChronoField.MILLI_OF_SECOND)),
+  implicit val instantMapping = MappedColumnType.base[Instant, java.sql.Timestamp](
+    i => new Timestamp(i.get(ChronoField.MILLI_OF_SECOND)),
     _.toInstant
   )
 
