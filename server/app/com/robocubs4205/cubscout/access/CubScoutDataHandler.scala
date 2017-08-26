@@ -4,15 +4,17 @@ import java.util.Date
 import javax.inject.Inject
 
 import com.robocubs4205.cubscout.{CubScoutDb, TokenVal}
-import com.robocubs4205.cubscout.access.model._
+import com.robocubs4205.cubscout.model.access._
 
 import scala.concurrent.{ExecutionContext, Future}
 import scalaoauth2.provider.{AccessToken => ProviderAccessToken, RefreshToken => ProviderRefreshToken, _}
 import com.github.t3hnar.bcrypt._
-import com.robocubs4205.cubscout.access.model.AccessToken.{AccessTokenRep, AccessTokenWithRefreshToken, StandaloneAccessToken}
-import com.robocubs4205.cubscout.access.model.Client.ClientWithSecret
+import com.robocubs4205.cubscout.model.access.AccessToken.{AccessTokenRep, AccessTokenWithRefreshToken, StandaloneAccessToken}
+import com.robocubs4205.cubscout.model.access.Client.ClientWithSecret
 import slick.dbio.DBIOAction
 import com.netaporter.uri.Uri
+import com.robocubs4205.cubscout.model.access.{Client, RefreshToken, Scope, User}
+import play.api.Logger
 
 import scala.util.{Failure, Success, Try}
 
@@ -130,7 +132,7 @@ class CubScoutDataHandler @Inject()(private[access] val csdb: CubScoutDb)(implic
   ): Future[Boolean] = maybeCredential.fold(Future(false)) {
     credential => db.run {
       TokenVal(credential.clientId).map {
-        id => request match {
+        id => narrowRequest(request) match {
           //only allowed for clients that can keep a secret
           case r: RefreshTokenRequest => {
             for {
@@ -171,11 +173,23 @@ class CubScoutDataHandler @Inject()(private[access] val csdb: CubScoutDb)(implic
               firstPartyClient.map(_.redirectUris.contains(redirectUri))
           } yield sameUri) getOrElse false
 
-            //other grant types not allowed
-          case _ => DBIO.successful(false)
+          //other grant types not allowed
+          case r =>
+            Logger.info(s"invalid grant type ${r.grantType}")
+            DBIO.successful(false)
         }
+      }.recoverWith {
+        case t: Throwable =>
+          Logger.info("error when parsing client id",t)
+          Failure(t)
       }.getOrElse(DBIO.successful(false))
     }
+  }
+
+  private[this] def narrowRequest(request:AuthorizationRequest):AuthorizationRequest = request.grantType match{
+    case OAuthGrantType.PASSWORD => PasswordRequest(request)
+    case OAuthGrantType.REFRESH_TOKEN => RefreshTokenRequest(request)
+    case OAuthGrantType.AUTHORIZATION_CODE => AuthorizationCodeRequest(request)
   }
 
   override def findUser(
@@ -209,7 +223,7 @@ class CubScoutDataHandler @Inject()(private[access] val csdb: CubScoutDb)(implic
     db.run {
       val tokenWithRefresh = for {
         refreshToken <- refreshTokens.filter(_.userId === authInfo.user.id).result.headOption
-        accessToken <- accessTokensWithRefreshTokens.filter(_.refreshTokenSelector === refreshToken.get.selector).result.headOption if refreshToken.isDefined
+        accessToken <- accessTokensWithRefreshTokens.filter(_.refreshTokenSelector === refreshToken.map(_.selector)).result.headOption
         providerAccessToken <- {
           for {
             refreshToken <- refreshToken

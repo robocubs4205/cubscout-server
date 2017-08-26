@@ -28,3 +28,5 @@ DELETE  /api/v1/games/:id               com.robocubs4205.cubscout.api.v1.control
 PUT     /api/v1/games/:id               com.robocubs4205.cubscout.api.v1.controllers.GameController.replace(id:Long,context:Option[String])
 GET     /api/v1/games/:id/events        com.robocubs4205.cubscout.api.v1.controllers.GameController.eventIndex(id:Long,context:Option[String])
 GET     /api/v1/games/:id/robots        com.robocubs4205.cubscout.api.v1.controllers.GameController.robotIndex(id:Long,context:Option[String])
+
+POST    /api/v1/oauth/access_token      com.robocubs4205.cubscout.api.v1.controllers.OauthController.accessToken

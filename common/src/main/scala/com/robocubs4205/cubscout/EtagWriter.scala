@@ -1,8 +1,7 @@
 package com.robocubs4205.cubscout
 
 import org.apache.commons.codec.digest.DigestUtils
-import play.api.libs.json.{Json, Writes}
-
+import play.api.libs.json._
 
 /**
   * Created by trevor on 7/28/17.

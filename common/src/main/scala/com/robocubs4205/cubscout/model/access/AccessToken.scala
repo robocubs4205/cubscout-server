@@ -1,7 +1,6 @@
-package com.robocubs4205.cubscout.access.model
+package com.robocubs4205.cubscout.model.access
 
 import java.time.Instant
-import java.util.UUID
 
 import com.robocubs4205.cubscout.TokenVal
 

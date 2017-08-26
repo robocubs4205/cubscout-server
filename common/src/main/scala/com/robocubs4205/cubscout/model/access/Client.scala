@@ -1,4 +1,4 @@
-package com.robocubs4205.cubscout.access.model
+package com.robocubs4205.cubscout.model.access
 
 import com.netaporter.uri.Uri
 import com.robocubs4205.cubscout.TokenVal

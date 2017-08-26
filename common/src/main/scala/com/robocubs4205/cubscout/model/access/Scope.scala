@@ -1,4 +1,4 @@
-package com.robocubs4205.cubscout.access.model
+package com.robocubs4205.cubscout.model.access
 
 import scala.util.{Failure, Success, Try}
 

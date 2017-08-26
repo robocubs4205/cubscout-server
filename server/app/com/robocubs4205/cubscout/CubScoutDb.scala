@@ -9,9 +9,10 @@ import javax.inject.{Inject, Named}
 import com.netaporter.uri.Uri
 import com.robocubs4205.cubscout.model._
 import com.robocubs4205.cubscout.model.scorecard.Result
-import com.robocubs4205.cubscout.access.model.AccessToken.{AccessTokenWithRefreshToken, StandaloneAccessToken}
-import com.robocubs4205.cubscout.access.model._
-import com.robocubs4205.cubscout.access.model.Client._
+import com.robocubs4205.cubscout.model.access.AccessToken.{AccessTokenWithRefreshToken, StandaloneAccessToken}
+import com.robocubs4205.cubscout.model.access._
+import com.robocubs4205.cubscout.model.access.Client._
+import com.robocubs4205.cubscout.model.access.{AuthCode, RefreshToken, User}
 import play.api.{Application, Environment, Logger}
 import play.api.Mode.Test
 import play.api.db.slick.{DatabaseConfigProvider, DbName, DefaultSlickApi, SlickApi}
@@ -258,7 +259,7 @@ class CubScoutDb @Inject()(dbConfigProvider: DatabaseConfigProvider)(implicit ex
 
     def userFk = foreignKey("refreshToken_user_fk", userId, users)(_.id, onUpdate = Cascade, onDelete = Cascade)
 
-    def scopes = column[String]("scope")
+    def scopes = column[String]("scopes")
 
     private[this] def makeToken(selector: TokenVal, validator: TokenVal, clientId: TokenVal, userId: TokenVal, scopes: String) =
       Scope.parseSet(scopes).map(
