@@ -4,7 +4,7 @@ import sbt.Keys.{organization, scalacOptions}
 version := "1.0-SNAPSHOT"
 
 inThisBuild(Seq(
-  scalaVersion := "2.12.2",
+  scalaVersion := "2.12.3",
   name := """CubScout""",
   organization := "com.robocubs4205",
   version := "1.0-SNAPSHOT",
@@ -39,15 +39,24 @@ lazy val server = (project in file("server")).settings(
 
 lazy val client = (project in file("client")).settings(
   scalaJSUseMainModuleInitializer := true,
-  libraryDependencies ++= Seq(
-    "org.scala-js" %%% "scalajs-dom" % "0.9.1"
+  webpackConfigFile := Some(baseDirectory.value/"webpack.config.js"),
+  libraryDependencies += "org.scala-js" %%% "scalajs-dom" % "0.9.1",
+  libraryDependencies += "com.github.japgolly.scalajs-react" %%% "core" % "1.1.0",
+  libraryDependencies += "com.github.japgolly.scalajs-react" %%% "extra" % "1.1.0",
+  libraryDependencies += "com.olvind" %%% "scalajs-react-components" % "0.7.0",
+  libraryDependencies += "org.scalatest" %%% "scalatest" % "3.0.4" % "test",
+    npmDependencies in Compile ++= Seq(
+    "react" -> "15.6.1",
+    "react-dom" -> "15.6.1",
+    "material-ui" -> "0.19.0"
   ),
   scalaSource in Compile := baseDirectory.value / "app",
   scalaSource in Test := baseDirectory.value / "test",
   javaSource in Compile := baseDirectory.value / "app",
-  javaSource in Test := baseDirectory.value / "test"
-).enablePlugins(ScalaJSPlugin, ScalaJSWeb).
-  dependsOn(commonJS)
+  javaSource in Test := baseDirectory.value / "test",
+  resourceDirectory in Compile := baseDirectory.value / "resources",
+  resourceDirectory in Test := baseDirectory.value / "testResources"
+).enablePlugins(ScalaJSPlugin, ScalaJSBundlerPlugin).dependsOn(commonJS)
 
 lazy val commonJVM = common.jvm
 
@@ -57,8 +66,10 @@ lazy val common = (crossProject.crossType(CrossType.Pure) in file("common")).set
   libraryDependencies += "io.lemonlabs" %% "scala-uri" % "0.4.16",
   libraryDependencies += "com.typesafe.play" %% "play" % "2.6.2",
   libraryDependencies += "commons-codec" % "commons-codec" % "1.10"
-).jsConfigure(_ enablePlugins ScalaJSWeb).jvmSettings(
+).jvmSettings(
   libraryDependencies += "org.scala-js" %% "scalajs-stubs" % scalaJSVersion % "provided"
+).jsSettings(
+  libraryDependencies += "org.scala-js" %%% "scalajs-java-time" % "0.2.2"
 )
 
 onLoad in Global := (Command.process("project server", _: State)) compose (onLoad in Global).value
