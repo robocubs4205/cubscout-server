@@ -616,12 +616,7 @@ class CubScoutDataHandlerSpec extends PlaySpec with GuiceOneAppPerSuite with Inj
 
   def insertRefreshTokenWithTwoScopes(client: Client, user: User) = Await.result(
     db.run {
-      val token = RefreshToken(
-        TokenVal(0x1234, 0x56789L),
-        TokenVal(0x1234, 0x56789L),
-        client.id, user.id,
-        Set(ManageTeam, ScoreMatches)
-      )
+      val token = RefreshToken(TokenVal(0x1234, 0x56789L), TokenVal(0x1234, 0x56789L), client.id, user.id, Set(ManageTeam, ScoreMatches))
       for {
         _ <- refreshTokens += token
       } yield token

@@ -4,7 +4,7 @@ import org.scalatestplus.play.PlaySpec
 
 class TokenValSpec extends PlaySpec {
   "A TokenVal" must {
-    "return a 4 digit string" in {
+    "return a 22 digit string" in {
       val tokenVal = TokenVal(0x32ea,0x587d)
       val string = tokenVal.toString
       string must have length 22
