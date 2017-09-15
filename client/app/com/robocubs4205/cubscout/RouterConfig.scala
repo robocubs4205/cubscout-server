@@ -1,5 +1,6 @@
 package com.robocubs4205.cubscout
 
+import com.robocubs4205.cubscout.i18n.I18n
 import japgolly.scalajs.react.extra.router._
 import japgolly.scalajs.react.vdom.Implicits._
 
@@ -7,15 +8,15 @@ object RouterConfig {
 
   import com.robocubs4205.cubscout.RouterConfig.Page._
 
-  val routerConfig = RouterConfigDsl[Page].buildConfig {
+  def routerConfig(i18n:I18n) = RouterConfigDsl[Page].buildConfig {
     dsl =>
       import dsl._
       {
         emptyRule |
-          staticRoute("#login", Login) ~> render(LoginComponent()) |
+          staticRoute("#login", Login) ~> render(LoginComponent(i18n)) |
           staticRoute("#scout", ScoutPage) ~> render(MainComponent())
-      }.fallback(_ => Path("#"), (_, _) => redirectToPage(ScoutPage)(Redirect.Replace))
-        .notFound(path => redirectToPage(ScoutPage)(Redirect.Replace))
+      }.fallback(_ => Path("#"), (_, _) => redirectToPage(Login)(Redirect.Replace))
+        .notFound(path => redirectToPage(Login)(Redirect.Replace))
   }
 
   sealed trait Page {
@@ -34,5 +35,5 @@ object RouterConfig {
 
   }
 
-  def apply() = routerConfig
+  def apply(i18n:I18n) = routerConfig(i18n)
 }
