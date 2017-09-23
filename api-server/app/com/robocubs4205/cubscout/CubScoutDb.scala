@@ -33,6 +33,8 @@ class CubScoutDb @Inject()(dbConfigProvider: DatabaseConfigProvider)(implicit ex
   import dbConfig._
   import profile.api._
 
+  DBIO.successful("")
+
   implicit val localDateMapping = MappedColumnType.base[LocalDate, Date](
     Date.valueOf,
     _.toLocalDate
@@ -208,7 +210,9 @@ class CubScoutDb @Inject()(dbConfigProvider: DatabaseConfigProvider)(implicit ex
 
     def redirectUris = column[Seq[Uri]]("uris")
 
-    def * = (id, name, author, secret, redirectUris) <> (ServerClient.tupled, ServerClient.unapply)
+    def firstParty = column[Boolean]("firstParty")
+
+    def * = (id, name, author, secret, redirectUris, firstParty) <> (ServerClient.tupled, ServerClient.unapply)
   }
 
   class BrowserClientsTable(tag: Tag) extends Table[BrowserClient](tag, "browserClients") {
@@ -220,7 +224,9 @@ class CubScoutDb @Inject()(dbConfigProvider: DatabaseConfigProvider)(implicit ex
 
     def redirectUris = column[Seq[Uri]]("uris")
 
-    def * = (id, name, author, redirectUris) <> (BrowserClient.tupled, BrowserClient.unapply)
+    def firstParty = column[Boolean]("firstParty")
+
+    def * = (id, name, author, redirectUris, firstParty) <> (BrowserClient.tupled, BrowserClient.unapply)
   }
 
   class NativeClientsTable(tag: Tag) extends Table[NativeClient](tag, "nativeClients") {
@@ -232,19 +238,9 @@ class CubScoutDb @Inject()(dbConfigProvider: DatabaseConfigProvider)(implicit ex
 
     def redirectUris = column[Seq[Uri]]("uris")
 
-    def * = (id, name, author, redirectUris) <> (NativeClient.tupled, NativeClient.unapply)
-  }
+    def firstParty = column[Boolean]("firstParty")
 
-  class FirstPartyClientsTable(tag: Tag) extends Table[FirstPartyClient](tag, "firstPartyClients") {
-    def id = column[TokenVal]("id", O.PrimaryKey)
-
-    def name = column[String]("name")
-
-    def secret = column[Option[TokenVal]]("secret")
-
-    def redirectUris = column[Seq[Uri]]("uris")
-
-    def * = (id, name, secret, redirectUris) <> (FirstPartyClient.tupled, FirstPartyClient.unapply)
+    def * = (id, name, author, redirectUris, firstParty) <> (NativeClient.tupled, NativeClient.unapply)
   }
 
   class RefreshTokenTable(tag: Tag) extends Table[RefreshToken](tag, "refreshTokens") {
@@ -343,7 +339,6 @@ class CubScoutDb @Inject()(dbConfigProvider: DatabaseConfigProvider)(implicit ex
   val serverClients = TableQuery[ServerClientsTable]
   val browserClients = TableQuery[BrowserClientsTable]
   val nativeClients = TableQuery[NativeClientsTable]
-  val firstPartyClients = TableQuery[FirstPartyClientsTable]
 
   val refreshTokens = TableQuery[RefreshTokenTable]
   val accessTokensWithRefreshTokens = TableQuery[AccessTokenWithRefreshTokenTable]
