@@ -1,95 +1,131 @@
 package com.robocubs4205.oath
 
-import java.time.{Duration, Instant}
 
-import scala.concurrent.{ExecutionContext, Future}
+import java.time.Instant
 
-/**
-  * Handles Grant requests by combining library-user-defined methods
-  */
-trait GrantHandlerBase extends GrantHandler {
-  self: {
-    val ec:ExecutionContext
-  } =>
-  implicit val e = ec
-  override def handleRequest(request: GrantRequest): Future[Grant] = {
-    def falseToFail[T](t: Throwable, v: T = ())(b: Boolean) =
-      if (b) Future(v)
-      else Future.failed(t)
+import com.netaporter.uri.Uri
 
-    {
-      request.clientSecret.map {
-        secret =>
-          authenticateClient(request.clientId, secret)
-      } getOrElse validateClient(request.clientId)
-    } flatMap falseToFail(UnauthorizedException) flatMap { _ =>
-      clientIsAuthorizedForRequestType(request.clientId, request.grantType)
-    } flatMap falseToFail(UnauthorizedException) flatMap { _ =>
-      request match {
-        case request: GrantRequest.AccessCodeGrantRequest =>
-          requestIsValidForAuthCode(request) flatMap falseToFail(UnauthorizedException) flatMap { _ =>
-            if (request.clientSecret.isDefined) for {
-              refreshToken <- createRefreshToken(request)
-              accessToken <- createAccessToken(request, Some(refreshToken))
-              scopes <- scopesFromAuthCodeAndClient(request.accessCode, request.clientId)
-              lifetime <- accessCodeLifetime(request)
-            } yield Grant(
-              accessToken,
-              Some(refreshToken),
-              scopes,
-              lifetime.map(Instant.now().plus(_))
-            )
-            else for {
-              accessToken <- createAccessToken(request, None)
-              scopes <- scopesFromAuthCodeAndClient(request.accessCode, request.clientId)
-              lifetime <- accessCodeLifetime(request)
-            } yield Grant(accessToken, None, scopes, lifetime.map(Instant.now().plus(_)))
+import scala.concurrent.Future
+import scala.language.higherKinds
+import scala.util.{Failure, Success, Try}
+import scalaz.Monad
+
+abstract class GrantHandlerBase[Client, User, Id, Secret, RefreshToken, AccessToken, AuthCode, Scope](
+  idParser: String => Try[Id],
+  secretParser: String => Try[Secret],
+  refreshTokenParser: String => Try[RefreshToken],
+  accessTokenParser: String => Try[AccessToken],
+  authCodeParser: String => Try[AuthCode],
+  scopeParser: String => Try[Scope],
+  refreshTokenWriter: RefreshToken => String = _.toString,
+  accessTokenWriter: RefreshToken => String = _.toString,
+  authCodeTokenWriter: RefreshToken => String = _.toString,
+  scopeWriter: Scope => String = _.toString
+) extends GrantHandler {
+  private[this] def optTryToTryOpt[A](v: Option[Try[A]]): Try[Option[A]] = v match {
+    case Some(Success(v)) => Success(Some(v))
+    case Some(Failure(t)) => Failure(t)
+    case None => Success(None)
+  }
+
+  private[this] def parseScopes(scopes: Seq[String]): Try[Seq[Scope]] = {
+    scopes.map(scopeParser(_)).foldLeft(Try(Seq[Scope]())) {
+      (ts, t) =>
+        ts match {
+          case Success(scopes) => t match {
+            case Success(scope) => Success(scopes :+ scope)
+            case Failure(th) => Failure(th)
           }
-        case request: GrantRequest.PasswordGrantRequest =>
-          authenticateUser(request.username, request.password) flatMap falseToFail(UnauthorizedException) flatMap { _ =>
-            if (request.clientSecret.isDefined) for {
-              refreshToken <- createRefreshToken(request)
-              accessToken <- createAccessToken(request, Some(refreshToken))
-              scopes <- scopesFromPasswordRequest(request)
-              lifetime <- accessCodeLifetime(request)
-            } yield Grant(
-              accessToken,
-              Some(refreshToken),
-              scopes,
-              lifetime.map(Instant.now().plus(_))
-            )
-            else for {
-              accessToken <- createAccessToken(request, None)
-              scopes <- scopesFromPasswordRequest(request)
-              lifetime <- accessCodeLifetime(request)
-            } yield Grant(accessToken, None, scopes, lifetime.map(Instant.now().plus(_)))
-          }
-      }
+          case v@Failure(_) => v
+        }
     }
   }
 
-  def validateClient(id: String): Future[Boolean]
+  private[this] def futureFalseToFail[T](t: Throwable, v: T = ())(b: Boolean): Future[T] =
+    if (b) Future(v) else Future.failed(t)
 
-  def authenticateClient(id: String, secret: String): Future[Boolean]
+  override def handleRequest(request: GrantRequest) = {
+    (for {
+      id <- idParser(request.clientId)
+      secret <- optTryToTryOpt {
+        request.clientSecret.map(secretParser(_))
+      }
+    } yield {
 
-  def clientIsAuthorizedForRequestType(id: String, grantType: GrantType): Future[Boolean]
+      (for {
+        client <- client(id)
+        _ <- secret match {
+          case None => Future(())
+          case Some(secret) => authenticateClient(client, secret).map(_ => client)
+        }
+        _ <- uriRegisteredForClient(request.redirectUri, client) flatMap futureFalseToFail(UnauthorizedException)
+        _ <- grantTypeAllowed(client, request.grantType) flatMap futureFalseToFail(UnauthorizedException)
+      } yield client).flatMap { client =>
+        request match {
+          case request: GrantRequest.AuthCodeGrantRequest => authCodeParser(request.authCode).map { authCode =>
+            for {
+              _ <- authCodeValidForClientAndSecret(authCode, client, secret) flatMap
+                futureFalseToFail(UnauthorizedException)
+              scopes <- scopesFromAuthCode(authCode)
+              user <- user(authCode)
+            } yield (client, scopes, user)
+          }.recover(PartialFunction(t => Future.failed(t))).get
 
-  /**
-    * returns true if the auth code exists and the request is valid for the auth code. Returns false
-    * otherwise. "Valid for the auth code" typically means that the client id matches the one that
-    * the auth code was granted for.
-    */
-  def requestIsValidForAuthCode(request: GrantRequest.AccessCodeGrantRequest): Future[Boolean]
+          case request: GrantRequest.PasswordGrantRequest =>
+            for {
+              user <- user(request.username)
+              _ <- authenticateUser(user, request.password) flatMap futureFalseToFail(UnauthorizedException)
+              scopes <- parseScopes(request.scopes.split(" ")).map(Future(_))
+                .recover(PartialFunction(t => Future.failed(t))).get
+            } yield (client, scopes, user)
+        }
+      }.flatMap {
+        case (client, scopes, user) =>
+          for {
+            _ <- scopesAllowedForClient(scopes, client).flatMap {
+              case true => Future(())
+              case false => Future.failed(UnauthorizedException)
+            }
+            refreshToken <- maybeCreateRefreshToken(user, client, scopes, request.grantType)
+            (accessToken, expires) <- createAccessToken(user, client, scopes, request.grantType, refreshToken)
+          } yield Grant(
+            authCodeTokenWriter(accessToken),
+            refreshToken.map(refreshTokenWriter(_)),
+            scopes.map(scopeWriter(_)),
+            Some(expires))
+      }
+    }).recover(PartialFunction(t => Future.failed(t))).get
+  }
 
-  def authenticateUser(username: String, password: String): Future[Boolean]
+  def client(id: Id): Future[Client]
 
-  def createRefreshToken(request: GrantRequest): Future[String]
+  def authenticateClient(client: Client, secret: Secret): Future[Boolean]
 
-  def createAccessToken(request: GrantRequest, refreshToken: Option[String]): Future[String]
+  def uriRegisteredForClient(uri: Uri, client: Client): Future[Boolean]
 
-  def scopesFromAuthCodeAndClient(authCode: String, clientId: String): Future[Seq[String]]
+  def grantTypeAllowed(client: Client, grantType: GrantType): Future[Boolean]
 
-  def accessCodeLifetime(request: GrantRequest): Future[Option[Duration]]
+  def authCodeValidForClientAndSecret(authCode: AuthCode, client: Client, secret: Option[Secret]): Future[Boolean]
 
-  def scopesFromPasswordRequest(request: GrantRequest.PasswordGrantRequest): Future[Seq[String]]
+  def scopesFromAuthCode(authCode: AuthCode): Future[Seq[Scope]]
+
+  def scopesAllowedForClient(scopes: Seq[Scope], client: Client): Future[Boolean]
+
+  def user(username: String): Future[User]
+
+  def user(authCode: AuthCode): Future[User]
+
+  def authenticateUser(user: User, password: String): Future[Boolean]
+
+  def maybeCreateRefreshToken(user: User,
+    client: Client,
+    scopes: Seq[Scope],
+    grantType: GrantType): Future[Option[RefreshToken]]
+
+  def createAccessToken(
+    user: User,
+    client: Client,
+    scopes: Seq[Scope],
+    grantType: GrantType,
+    refreshToken: Option[RefreshToken]): Future[(AccessToken, Instant)]
 }

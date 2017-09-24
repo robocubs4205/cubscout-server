@@ -10,12 +10,13 @@ import scala.collection.JavaConverters._
 version := "1.0-SNAPSHOT"
 
 inThisBuild(Seq(
-  scalaVersion := "2.12.3",
+  scalaVersion := "2.12.0",
   name := """CubScout""",
   organization := "com.robocubs4205",
   version := "1.0-SNAPSHOT",
   scalacOptions += "-feature",
-  resolvers += "Atlassian" at "https://maven.atlassian.com/content/repositories/atlassian-public/"
+  resolvers += "Atlassian" at "https://maven.atlassian.com/content/repositories/atlassian-public/",
+  libraryDependencies += "org.scalaz" %% "scalaz-core" % "7.2.15"
 ))
 
 lazy val apiServer = (project in file("api-server")).settings(
@@ -69,9 +70,7 @@ lazy val client = (project in file("client")).settings(
 lazy val clientTestServer = (project in file("client-test-server")).settings(
   libraryDependencies += guice,
   scalaJSProjects := Seq(client),
-  pipelineStages in Assets := Seq(scalaJSPipeline),
-  fork in run := true,
-  javaOptions in run += "-Dhttp.port=9001"
+  pipelineStages in Assets := Seq(scalaJSPipeline)
 ).dependsOn(client).enablePlugins(PlayScala, WebScalaJSBundlerPlugin)
 
 lazy val commonJVM = common.jvm

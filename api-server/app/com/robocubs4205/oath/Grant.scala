@@ -8,4 +8,4 @@ import java.time.Instant
 case class Grant(accessToken:String,
                  refreshToken:Option[String],
                  scopes:Seq[String],
-                 expiresIn:Option[Instant])
+                 expires:Option[Instant])
