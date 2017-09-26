@@ -15,8 +15,7 @@ inThisBuild(Seq(
   organization := "com.robocubs4205",
   version := "1.0-SNAPSHOT",
   scalacOptions += "-feature",
-  resolvers += "Atlassian" at "https://maven.atlassian.com/content/repositories/atlassian-public/",
-  libraryDependencies += "org.scalaz" %% "scalaz-core" % "7.2.15"
+  resolvers += "Atlassian" at "https://maven.atlassian.com/content/repositories/atlassian-public/"
 ))
 
 lazy val apiServer = (project in file("api-server")).settings(
