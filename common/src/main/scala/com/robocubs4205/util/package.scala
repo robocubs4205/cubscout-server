@@ -16,5 +16,7 @@ package object util {
     case Failure(t) => Some(Failure(t))
   }
 
-  implicit def futureBoolToFutureBoolOpts(f:Future[Boolean])(implicit ec:ExecutionContext) = FutureBoolOpts(f)
+  implicit case class FutureBoolOpts(f:Future[Boolean])(implicit ec:ExecutionContext){
+    def falseToFail[T](t:Throwable,v:T=()) = f.flatMap(if (_) Future(v) else Future.failed(t))
+  }
 }
