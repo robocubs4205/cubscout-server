@@ -1,98 +1,37 @@
 package com.robocubs4205.oath
 
-
+import com.robocubs4205.util._
 import java.time.Instant
 
 import com.netaporter.uri.Uri
 
 import scala.concurrent.Future
+import scala.concurrent.ExecutionContext
 import scala.language.higherKinds
 import scala.util.{Failure, Success, Try}
-import scalaz.Monad
 
-abstract class GrantHandlerBase[Client, User, Id, Secret, RefreshToken, AccessToken, AuthCode, Scope](
-  idParser: String => Try[Id],
-  secretParser: String => Try[Secret],
-  refreshTokenParser: String => Try[RefreshToken],
-  accessTokenParser: String => Try[AccessToken],
-  authCodeParser: String => Try[AuthCode],
-  scopeParser: String => Try[Scope],
-  refreshTokenWriter: RefreshToken => String = _.toString,
-  accessTokenWriter: RefreshToken => String = _.toString,
-  authCodeTokenWriter: RefreshToken => String = _.toString,
-  scopeWriter: Scope => String = _.toString
-) extends GrantHandler {
-  private[this] def optTryToTryOpt[A](v: Option[Try[A]]): Try[Option[A]] = v match {
-    case Some(Success(v)) => Success(Some(v))
-    case Some(Failure(t)) => Failure(t)
-    case None => Success(None)
-  }
+trait GrantHandlerBase[Client, User, Id, Secret, RefreshToken, AccessToken, AuthCode, Scope]
+  extends GrantHandler {
 
-  private[this] def parseScopes(scopes: Seq[String]): Try[Seq[Scope]] = {
-    scopes.map(scopeParser(_)).foldLeft(Try(Seq[Scope]())) {
-      (ts, t) =>
-        ts match {
-          case Success(scopes) => t match {
-            case Success(scope) => Success(scopes :+ scope)
-            case Failure(th) => Failure(th)
-          }
-          case v@Failure(_) => v
-        }
-    }
-  }
+  implicit def ec:ExecutionContext
 
-  private[this] def futureFalseToFail[T](t: Throwable, v: T = ())(b: Boolean): Future[T] =
-    if (b) Future(v) else Future.failed(t)
+  def parseId(s: String): Try[Id]
 
-  override def handleRequest(request: GrantRequest) = {
-    (for {
-      id <- idParser(request.clientId)
-      secret <- optTryToTryOpt {
-        request.clientSecret.map(secretParser(_))
-      }
-    } yield {
-      (for {
-        _ <- Future(supportedGrantTypes.contains(request.grantType)) flatMap futureFalseToFail(UnsupportedGrantTypeException)
-        client <- client(id)
-        _ <- secret match {
-          case None => Future(())
-          case Some(secret) => authenticateClient(client, secret).map(_ => client)
-        }
-        _ <- uriRegisteredForClient(request.redirectUri, client) flatMap futureFalseToFail(InvalidRedirectException)
-        _ <- grantTypeAllowed(client, request.grantType) flatMap futureFalseToFail(UnauthorizedGrantTypeException)
-      } yield client).flatMap { client =>
-        request match {
-          case request: GrantRequest.AuthCodeGrantRequest => authCodeParser(request.authCode).map { authCode =>
-            for {
-              _ <- authCodeValidForClientAndSecret(authCode, client, secret) flatMap
-                futureFalseToFail(InvalidAuthCodeException)
-              scopes <- scopesFromAuthCode(authCode)
-              user <- user(authCode)
-            } yield (client, scopes, user)
-          }.recover(PartialFunction(t => Future.failed(t))).get
+  def parseSecret(s: String): Try[Secret]
 
-          case request: GrantRequest.PasswordGrantRequest =>
-            for {
-              user <- user(request.username)
-              _ <- authenticateUser(user, request.password) flatMap futureFalseToFail(InvalidUserException)
-              scopes <- parseScopes(request.scopes.split(" ")).map(Future(_))
-                .recover(PartialFunction(t => Future.failed(t))).get
-            } yield (client, scopes, user)
-        }
-      }.flatMap {
-        case (client, scopes, user) =>
-          for {
-            _ <- scopesAllowedForClient(scopes, client) flatMap futureFalseToFail(InvalidScopeException)
-            refreshToken <- maybeCreateRefreshToken(user, client, scopes, request.grantType)
-            (accessToken, expires) <- createAccessToken(user, client, scopes, request.grantType, refreshToken)
-          } yield Grant(
-            authCodeTokenWriter(accessToken),
-            refreshToken.map(refreshTokenWriter(_)),
-            scopes.map(scopeWriter(_)),
-            Some(expires))
-      }
-    }).recover(PartialFunction(t => Future.failed(t))).get
-  }
+  def parseRefreshToken(s: String): Try[RefreshToken]
+
+  def parseAuthCode(s: String): Try[AuthCode]
+
+  def parseAccessToken(s: String): Try[AccessToken]
+
+  def parseScope(s: String): Try[Scope]
+
+  def writeRefreshToken(v: RefreshToken): String = v.toString
+
+  def writeAccessToken(v: AccessToken): String = v.toString
+
+  def WriteScope(v: Scope): String = v.toString
 
   def supportedGrantTypes: Seq[GrantType]
 
@@ -127,4 +66,64 @@ abstract class GrantHandlerBase[Client, User, Id, Secret, RefreshToken, AccessTo
     scopes: Seq[Scope],
     grantType: GrantType,
     refreshToken: Option[RefreshToken]): Future[(AccessToken, Instant)]
+
+  private[this] def parseScopes(scopes: Seq[String]): Try[Seq[Scope]] = {
+    scopes.map(parseScope).foldLeft(Try(Seq[Scope]())) {
+      (ts, t) =>
+        ts match {
+          case Success(scopes) => t match {
+            case Success(scope) => Success(scopes :+ scope)
+            case Failure(th) => Failure(th)
+          }
+          case v@Failure(_) => v
+        }
+    }
+  }
+
+  override def handleRequest(request: GrantRequest) = {
+    (for {
+      id <- parseId(request.clientId)
+      secret <- optTryToTryOpt(request.clientSecret.map(parseSecret))
+    } yield {
+      (for {
+        _ <- Future(supportedGrantTypes.contains(request.grantType)).falseToFail(UnsupportedGrantTypeException)
+        client <- client(id)
+        _ <- secret match {
+          case None => Future(())
+          case Some(secret) => authenticateClient(client, secret).map(_ => client)
+        }
+        _ <- uriRegisteredForClient(request.redirectUri, client).falseToFail(InvalidRedirectException)
+        _ <- grantTypeAllowed(client, request.grantType).falseToFail(UnauthorizedGrantTypeException)
+      } yield client).flatMap { client =>
+        request match {
+          case request: GrantRequest.AuthCodeGrantRequest => parseAuthCode(request.authCode).map { authCode =>
+            for {
+              _ <- authCodeValidForClientAndSecret(authCode, client, secret).falseToFail(InvalidAuthCodeException)
+              scopes <- scopesFromAuthCode(authCode)
+              user <- user(authCode)
+            } yield (client, scopes, user)
+          }.recover(PartialFunction(t => Future.failed(t))).get
+
+          case request: GrantRequest.PasswordGrantRequest =>
+            for {
+              user <- user(request.username)
+              _ <- authenticateUser(user, request.password).falseToFail(InvalidUserException)
+              scopes <- parseScopes(request.scopes.split(" ")).map(Future(_))
+                .recover(PartialFunction(t => Future.failed(t))).get
+            } yield (client, scopes, user)
+        }
+      }.flatMap {
+        case (client, scopes, user) =>
+          for {
+            _ <- scopesAllowedForClient(scopes, client).falseToFail(InvalidScopeException)
+            refreshToken <- maybeCreateRefreshToken(user, client, scopes, request.grantType)
+            (accessToken, expires) <- createAccessToken(user, client, scopes, request.grantType, refreshToken)
+          } yield Grant(
+            writeAccessToken(accessToken),
+            refreshToken.map(writeRefreshToken),
+            scopes.map(WriteScope),
+            Some(expires))
+      }
+    }).recover(PartialFunction(t => Future.failed(t))).get
+  }
 }
