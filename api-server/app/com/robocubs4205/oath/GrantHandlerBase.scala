@@ -51,21 +51,21 @@ abstract class GrantHandlerBase[Client, User, Id, Secret, RefreshToken, AccessTo
         request.clientSecret.map(secretParser(_))
       }
     } yield {
-
       (for {
+        _ <- Future(supportedGrantTypes.contains(request.grantType)) flatMap futureFalseToFail(UnsupportedGrantTypeException)
         client <- client(id)
         _ <- secret match {
           case None => Future(())
           case Some(secret) => authenticateClient(client, secret).map(_ => client)
         }
-        _ <- uriRegisteredForClient(request.redirectUri, client) flatMap futureFalseToFail(UnauthorizedException)
-        _ <- grantTypeAllowed(client, request.grantType) flatMap futureFalseToFail(UnauthorizedException)
+        _ <- uriRegisteredForClient(request.redirectUri, client) flatMap futureFalseToFail(InvalidRedirectException)
+        _ <- grantTypeAllowed(client, request.grantType) flatMap futureFalseToFail(UnauthorizedGrantTypeException)
       } yield client).flatMap { client =>
         request match {
           case request: GrantRequest.AuthCodeGrantRequest => authCodeParser(request.authCode).map { authCode =>
             for {
               _ <- authCodeValidForClientAndSecret(authCode, client, secret) flatMap
-                futureFalseToFail(UnauthorizedException)
+                futureFalseToFail(InvalidAuthCodeException)
               scopes <- scopesFromAuthCode(authCode)
               user <- user(authCode)
             } yield (client, scopes, user)
@@ -74,7 +74,7 @@ abstract class GrantHandlerBase[Client, User, Id, Secret, RefreshToken, AccessTo
           case request: GrantRequest.PasswordGrantRequest =>
             for {
               user <- user(request.username)
-              _ <- authenticateUser(user, request.password) flatMap futureFalseToFail(UnauthorizedException)
+              _ <- authenticateUser(user, request.password) flatMap futureFalseToFail(InvalidUserException)
               scopes <- parseScopes(request.scopes.split(" ")).map(Future(_))
                 .recover(PartialFunction(t => Future.failed(t))).get
             } yield (client, scopes, user)
@@ -82,10 +82,7 @@ abstract class GrantHandlerBase[Client, User, Id, Secret, RefreshToken, AccessTo
       }.flatMap {
         case (client, scopes, user) =>
           for {
-            _ <- scopesAllowedForClient(scopes, client).flatMap {
-              case true => Future(())
-              case false => Future.failed(UnauthorizedException)
-            }
+            _ <- scopesAllowedForClient(scopes, client) flatMap futureFalseToFail(InvalidScopeException)
             refreshToken <- maybeCreateRefreshToken(user, client, scopes, request.grantType)
             (accessToken, expires) <- createAccessToken(user, client, scopes, request.grantType, refreshToken)
           } yield Grant(
@@ -96,6 +93,8 @@ abstract class GrantHandlerBase[Client, User, Id, Secret, RefreshToken, AccessTo
       }
     }).recover(PartialFunction(t => Future.failed(t))).get
   }
+
+  def supportedGrantTypes: Seq[GrantType]
 
   def client(id: Id): Future[Client]
 
