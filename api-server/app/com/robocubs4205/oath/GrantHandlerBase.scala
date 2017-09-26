@@ -124,6 +124,6 @@ trait GrantHandlerBase[Client, User, Id, Secret, RefreshToken, AccessToken, Auth
             scopes.map(WriteScope),
             Some(expires))
       }
-    }).recover(PartialFunction(t => Future.failed(t))).get
+    }).recover(PartialFunction(_ => Future.failed(InvalidClientException))).get
   }
 }
