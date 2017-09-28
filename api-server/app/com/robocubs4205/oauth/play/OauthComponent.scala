@@ -26,6 +26,6 @@ trait OauthComponent {
       case v@InvalidUserException => BadRequest(Json.toJson(v))
       case v@UnauthorizedGrantTypeException => BadRequest(Json.toJson(v))
       case v@UnsupportedGrantTypeException => BadRequest(Json.toJson(v))
-    }
+    }.map(_.withHeaders(CACHE_CONTROL->"no-store",PRAGMA->"no-cache"))
   }
 }
