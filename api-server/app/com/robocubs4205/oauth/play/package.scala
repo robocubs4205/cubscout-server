@@ -1,31 +1,47 @@
 package com.robocubs4205.oauth
 
+import java.time.{Duration, Instant}
+
 import _root_.play.api.libs.json._
 import _root_.play.api.libs.functional.syntax._
+import _root_.play.api.libs.json.Reads._
 import com.netaporter.uri.Uri
 import com.robocubs4205.oauth.grant._
 import GrantRequest._
 
-package object play {
+package object play extends com.robocubs4205.util.Util{
   implicit val authCodeGrantRequestReads:Reads[AuthCodeGrantRequest] = (
     (JsPath\"auth_code").read[String] and
       (JsPath\"client_id").read[String] and
-      (JsPath\"client_secret").read[Option[String]] and
+      (JsPath\"client_secret").readNullable[String] and
       (JsPath\"redirect_uri").read[Uri]
-  )(AuthCodeGrantRequest.apply,unlift(AuthCodeGrantRequest.unapply))
+  )(AuthCodeGrantRequest.apply _)
 
   implicit val passwordGrantRequestReads:Reads[PasswordGrantRequest] = (
     (JsPath\"username").read[String] and
       (JsPath\"password").read[String] and
       (JsPath\"scopes").read[Seq[String]] and
       (JsPath\"client_id").read[String] and
-      (JsPath\"client_secret").read[Option[String]] and
+      (JsPath\"client_secret").readNullable[String] and
       (JsPath\"redirect_uri").read[Uri]
-  )(PasswordGrantRequest.apply,unlift(PasswordGrantRequest.unapply))
+  )(PasswordGrantRequest.apply _)
 
   implicit val grantRequestReads:Reads[GrantRequest] =
     authCodeGrantRequestReads.map(_.asInstanceOf[GrantRequest]) orElse
       passwordGrantRequestReads.map(_.asInstanceOf[GrantRequest])
+
+  implicit val grantWrites:Writes[Grant] =
+    grant => {
+      var res = Json.obj(
+        "access_token"->grant.accessToken,
+        "token_type"->"bearer",
+      "scope"->grant.scopes.mkString(" ")
+      )
+
+      if(grant.refreshToken.isDefined) res = res + ("refresh_token"->JsString(grant.refreshToken.get))
+      if(grant.expires.isDefined) res = res + ("expires_in"->JsNumber(Duration.between(Instant.now(),grant.expires.get).getSeconds))
+      res
+    }
 
   val ERROR = "error"
   val ERROR_DESCRIPTION = "error_description"

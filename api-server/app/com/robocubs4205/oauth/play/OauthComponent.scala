@@ -6,12 +6,14 @@ import _root_.play.api.mvc.{BaseController, Request}
 import com.robocubs4205.cubscout.JsonErrorResponseWrapper
 import com.robocubs4205.oauth.grant._
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
 trait OauthComponent {
   self: BaseController =>
   def grantHandler:GrantHandler
+
+  implicit def ec:ExecutionContext
 
   def handleOauthGrantRequest() = Action.async(parse.json) { implicit request:Request[JsValue]=>
     Json.fromJson[GrantRequest](request.body).map{ grantRequest =>
