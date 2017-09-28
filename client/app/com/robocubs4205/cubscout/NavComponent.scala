@@ -20,13 +20,13 @@ object NavComponent {
         )(
           MuiMenuItem(
             primaryText = vdomNodeFromString("foo"),
-            onTouchTap = (e:TouchTapEvent) => Callback{
+            onTouchTap = (_:TouchTapEvent) => Callback{
               println("menu clicked")
             }
           )()
         )
       }),
-      onLeftIconButtonTouchTap = (e: ReactEvent) => Callback {
+      onLeftIconButtonTouchTap = (_: ReactEvent) => Callback {
         println("touched")
       }
     )()

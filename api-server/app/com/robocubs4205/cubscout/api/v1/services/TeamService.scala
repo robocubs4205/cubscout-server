@@ -60,6 +60,6 @@ class TeamService @Inject()(csdb: CubScoutDb)(implicit ec: ExecutionContext) {
     extends RuntimeException("A team with that number and game type already exists")
 
   case class RobotsInTeamException()
-    extends RuntimeException("There are robots in that team, which prevens its deletion")
+    extends RuntimeException("There are robots in that team, which prevents its deletion")
 
 }

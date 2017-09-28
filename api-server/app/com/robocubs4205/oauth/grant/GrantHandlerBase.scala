@@ -66,6 +66,7 @@ trait GrantHandlerBase[Client, User, Id, Secret, RefreshToken, AccessToken, Auth
     grantType: GrantType,
     refreshToken: Option[RefreshToken]): Future[(AccessToken, Instant)]
 
+  //noinspection VariablePatternShadow
   private[this] def parseScopes(scopes: Seq[String]): Try[Seq[Scope]] = {
     scopes.map(parseScope).foldLeft(Try(Seq[Scope]())) {
       (ts, t) =>
@@ -79,6 +80,7 @@ trait GrantHandlerBase[Client, User, Id, Secret, RefreshToken, AccessToken, Auth
     }
   }
 
+  //noinspection VariablePatternShadow
   override def handleRequest(request: GrantRequest) = {
     (for {
       id <- parseId(request.clientId)

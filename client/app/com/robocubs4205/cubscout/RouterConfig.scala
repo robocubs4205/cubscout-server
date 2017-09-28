@@ -16,7 +16,7 @@ object RouterConfig {
           staticRoute("#login", Login) ~> render(LoginComponent(i18n)) |
           staticRoute("#scout", ScoutPage) ~> render(MainComponent())
       }.fallback(_ => Path("#"), (_, _) => redirectToPage(Login)(Redirect.Replace))
-        .notFound(path => redirectToPage(Login)(Redirect.Replace))
+        .notFound(_ => redirectToPage(Login)(Redirect.Replace))
   }
 
   sealed trait Page {

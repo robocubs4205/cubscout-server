@@ -19,19 +19,19 @@ class GameService @Inject()(csdb: CubScoutDb)(implicit ec: ExecutionContext) {
   def checkNoInsertConflict(game: Game) = {
     for {
       sameName <- games.filter(_.name === game.name).result.headOption
-      sameYearandType <- games.filter(_.year === game.year).filter(_.`type` === game.`type`).result.headOption
+      sameYearAndType <- games.filter(_.year === game.year).filter(_.`type` === game.`type`).result.headOption
     } yield if (sameName.isDefined) DBIO.failed(GameWithSameNameExistsException())
-    else if (sameYearandType.isDefined) DBIO.failed(GameWithSameYearAndTypeException())
+    else if (sameYearAndType.isDefined) DBIO.failed(GameWithSameYearAndTypeException())
     else DBIO.successful(())
   }.flatten
 
   def checkNoReplaceConflict(game: Game, id: Long) = {
     for {
       sameName <- games.filter(_.name === game.name).filter(_.id =!= id).result.headOption
-      sameYearandType <- games.filter(_.year === game.year).filter(_.`type` === game.`type`).filter(_.id =!= id)
+      sameYearAndType <- games.filter(_.year === game.year).filter(_.`type` === game.`type`).filter(_.id =!= id)
         .result.headOption
     } yield if (sameName.isDefined) DBIO.failed(GameWithSameNameExistsException())
-    else if (sameYearandType.isDefined) DBIO.failed(GameWithSameYearAndTypeException())
+    else if (sameYearAndType.isDefined) DBIO.failed(GameWithSameYearAndTypeException())
     else DBIO.successful(())
   }.flatten
 

@@ -18,6 +18,7 @@ inThisBuild(Seq(
   resolvers += "Atlassian" at "https://maven.atlassian.com/content/repositories/atlassian-public/"
 ))
 
+//noinspection SpellCheckingInspection
 lazy val apiServer = (project in file("api-server")).settings(
   libraryDependencies ++= Seq(
     guice,
