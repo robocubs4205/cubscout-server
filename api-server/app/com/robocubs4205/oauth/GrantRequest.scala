@@ -1,4 +1,4 @@
-package com.robocubs4205.oath
+package com.robocubs4205.oauth
 
 import com.netaporter.uri.Uri
 
@@ -29,7 +29,7 @@ object GrantRequest {
   case class PasswordGrantRequest(
     username: String,
     password: String,
-    scopes: String,
+    scopes: Seq[String],
     clientId: String,
     clientSecret: Option[String],
     redirectUri: Uri) extends GrantRequest {

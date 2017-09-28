@@ -1,4 +1,4 @@
-package com.robocubs4205.oath
+package com.robocubs4205.oauth
 
 import java.time.Instant
 

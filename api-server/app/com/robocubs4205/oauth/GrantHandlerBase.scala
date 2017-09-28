@@ -1,4 +1,4 @@
-package com.robocubs4205.oath
+package com.robocubs4205.oauth
 
 import com.robocubs4205.util._
 import java.time.Instant
@@ -108,7 +108,7 @@ trait GrantHandlerBase[Client, User, Id, Secret, RefreshToken, AccessToken, Auth
             for {
               user <- user(request.username)
               _ <- authenticateUser(user, request.password).falseToFail(InvalidUserException)
-              scopes <- parseScopes(request.scopes.split(" ")).map(Future(_))
+              scopes <- parseScopes(request.scopes).map(Future(_))
                 .recover(PartialFunction(t => Future.failed(t))).get
             } yield (client, scopes, user)
         }
