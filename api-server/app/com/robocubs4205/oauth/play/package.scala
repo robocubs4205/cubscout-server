@@ -3,7 +3,7 @@ package com.robocubs4205.oauth
 import _root_.play.api.libs.json._
 import _root_.play.api.libs.functional.syntax._
 import com.netaporter.uri.Uri
-
+import com.robocubs4205.oauth.grant._
 import GrantRequest._
 
 package object play {

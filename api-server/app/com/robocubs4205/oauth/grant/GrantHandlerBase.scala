@@ -1,12 +1,11 @@
-package com.robocubs4205.oauth
+package com.robocubs4205.oauth.grant
 
-import com.robocubs4205.util._
 import java.time.Instant
 
 import com.netaporter.uri.Uri
+import com.robocubs4205.util._
 
-import scala.concurrent.Future
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 import scala.language.higherKinds
 import scala.util.{Failure, Success, Try}
 

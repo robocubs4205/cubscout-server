@@ -1,4 +1,4 @@
-package com.robocubs4205.oauth
+package com.robocubs4205.oauth.grant
 
 /**
   * Created by trevor on 9/16/17.

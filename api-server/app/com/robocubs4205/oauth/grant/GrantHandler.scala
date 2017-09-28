@@ -1,4 +1,4 @@
-package com.robocubs4205.oauth
+package com.robocubs4205.oauth.grant
 
 import scala.concurrent.Future
 

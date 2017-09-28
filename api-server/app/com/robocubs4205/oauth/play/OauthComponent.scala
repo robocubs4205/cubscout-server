@@ -4,6 +4,7 @@ import com.robocubs4205.oauth._
 import _root_.play.api.libs.json._
 import _root_.play.api.mvc.{BaseController, Request}
 import com.robocubs4205.cubscout.JsonErrorResponseWrapper
+import com.robocubs4205.oauth.grant._
 
 import scala.concurrent.Future
 import scala.util.Try
