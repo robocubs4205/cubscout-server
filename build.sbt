@@ -34,7 +34,9 @@ lazy val apiServer = (project in file("api-server")).settings(
   ),
   //libraryDependencies += "com.mohiva" %% "play-silhouette" % "5.0.0",
 
-  libraryDependencies += "com.github.t3hnar" %% "scala-bcrypt" % "3.1"
+  libraryDependencies += "com.github.t3hnar" %% "scala-bcrypt" % "3.1",
+  libraryDependencies += "org.sangria-graphql" %% "sangria" % "1.3.3",
+  libraryDependencies += "org.sangria-graphql" %% "sangria-play-json" % "1.0.4"
 
   //Adds additional packages into Twirl
   //TwirlKeys.templateImports += "com.robocubs4205.cubscout.controllers._",
