@@ -16,18 +16,28 @@ sealed trait ScorecardSection {
 }
 
 sealed trait FieldSection extends ScorecardSection{
-  def fieldType: FieldType
+  def `type`: FieldType
   final override val discriminator = "field"
   def isOptional:Boolean
+  def label:String
 }
 
-final case class RequiredFieldSection(id: Long, scorecardId: Long, index: Long, fieldType: FieldType)
+final case class RequiredFieldSection(id: Long,
+                                      scorecardId: Long,
+                                      index: Long,
+                                      `type`: FieldType,
+                                      label:String)
   extends FieldSection {
   override val isOptional = false
 }
 
-final case class OptionalFieldSection(id: Long, scorecardId: Long, index: Long, fieldType: FieldType,nullWhen:NullWhen,
-                                checkboxMessage:String)
+final case class OptionalFieldSection(id: Long,
+                                      scorecardId: Long,
+                                      index: Long,
+                                      `type`: FieldType,
+                                      label:String,
+                                      nullWhen:NullWhen,
+                                      checkboxMessage:String)
   extends FieldSection{
   override val isOptional = true
 }
@@ -40,22 +50,21 @@ final case class TitleSection(id:Long,scorecardId:Long,index:Long,text:String) e
   override def discriminator: String = "title"
 }
 
-sealed trait FieldType {
+sealed trait FieldType
 
-  case class Count() extends FieldType
+object FieldType{
+  case object Count extends FieldType
 
-  case class Rating() extends FieldType
+  case object Rating extends FieldType
 
-  case class Boolean() extends FieldType
-
+  case object Boolean extends FieldType
 }
 
 
-sealed trait NullWhen {
+sealed trait NullWhen
+object NullWhen{
+  case object Checked extends NullWhen
 
-  case class Checked() extends NullWhen
-
-  case class UnChecked() extends NullWhen
-
+  case object UnChecked extends NullWhen
 }
 
